@@ -40,10 +40,17 @@ class Project(Base):
     status = Column(String, default="BRIEF") # BRIEF, NEGOTIATING, MOU_DRAFT, SIGNED
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
     
+    # aktivasi proyek dengan escrow
+    is_active = Column(Integer, default=0) # 0 = not active, 1 = active
+    activated_at = Column(DateTime, nullable=True)
+    escrow_account = Column(String, nullable=True) # referensi akun escrow
+    payment_deadline = Column(DateTime, nullable=True) # tagihan termin pertama
+
     # relationships
     proposals = relationship("Proposal", back_populates="project")
     mou = relationship("MoU", back_populates="project", uselist=False)
     notifications = relationship("Notification", back_populates="project")
+    invoices = relationship("Invoice", back_populates="project")
 
 # tabel proposal
 class Proposal(Base):
@@ -84,6 +91,12 @@ class MoU(Base):
     is_verified_by_admin = Column(Integer, default=0) # 0 = belum verifikasi, 1 = sudah verifikasi
     verified_at = Column(DateTime, nullable=True)
     
+    # digital signature (step 7 workflow)
+    client_signature = Column(String, nullable=True) # digital signature client
+    vendor_signature = Column(String, nullable=True) # digital signature vendor
+    client_signed_at = Column(DateTime, nullable=True)
+    vendor_signed_at = Column(DateTime, nullable=True)
+
     # relationship
     project = relationship("Project", back_populates="mou")
 
@@ -93,9 +106,14 @@ class Invoice(Base):
     id = Column(Integer, primary_key=True, index=True)
     project_id = Column(Integer, ForeignKey("project.project_id"))
     amount = Column(Integer)
-    status = Column(String, default="UNPAID") # UNPAID, PAID
+    status = Column(String, default="UNPAID") # UNPAID, PAID, OVERDUE
     term = Column(String) # "TERMIN 1 (DP 50%)"
+    due_date = Column(DateTime) # deadline pembayaran
+    paid_at = Column(DateTime, nullable=True) # timestamp pembayaran
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+
+    # relationship
+    project = relationship("Project", back_populates="invoices")
 
 # tabel notifikasi
 class Notification(Base):
