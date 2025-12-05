@@ -25,3 +25,7 @@ ENV/
 .idea/
 *.swp
 *.swo
+
+# Uploaded files
+static/uploads/*
+!static/uploads/.gitkeep

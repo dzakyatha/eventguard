@@ -10,23 +10,41 @@ from app.schemas.mou import MoUResponse, MoUStatusUpdate
 
 router = APIRouter()
 
-# endpoint 8: untuk membuat dokumen MoU digital (draft) berdasarkan proposal final yang disepakati
+# endpoint 9: untuk membuat dokumen MoU digital (draft) berdasarkan proposal final yang disepakati
 @router.post("/projects/{id}/mou")
 def generate_mou(id: int, request: Request, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     if current_user.role != "vendor":
-         raise HTTPException(status_code=403, detail="Only vendors generate MoU")
-    base_url = str(request.base_url)
-    static_url = f"{base_url}static/template_mou.pdf"
-    new_mou = MoU(project_id=id, file_url=static_url)
+        raise HTTPException(status_code=403, detail="Only vendors generate MoU")
+    
+    # cek apakah proyek dengan id tersebut ada
     project = db.query(Project).filter(Project.id == id).first()
-    project.status = "MOU_REVIEW"
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+    
+    # cek apakah MoU sudah ada
+    existing_mou = db.query(MoU).filter(MoU.project_id == id).first()
+    if existing_mou:
+        raise HTTPException(status_code=400, detail="MoU already exists for this project")
+    
+    # menggunakan template MoU yang sudah ada
+    base_url = str(request.base_url).rstrip('/')
+    static_url = f"{base_url}/static/templates/mou_template.pdf"
+    
+    # membuat MoU baru
+    new_mou = MoU(project_id=id, file_url=static_url)
     db.add(new_mou)
+    
+    # memperbarui status proyek
+    project.status = "MOU_DRAFT"
+    
     db.commit()
+    db.refresh(new_mou)
+    
     return new_mou
 
-# endpoint 9: untuk mendapatkan detail isi dokumen MoU untuk proses review
+# endpoint 10: untuk mendapatkan detail isi dokumen MoU untuk proses review
 @router.get("/mou/{mou_id}", response_model=MoUResponse)
-def get_mou_detail(mou_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+def get_mou_by_id(mou_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     mou = db.query(MoU).filter(MoU.id == mou_id).first()
     if not mou:
         raise HTTPException(status_code=404, detail="MoU not found")
@@ -43,7 +61,7 @@ def get_mou_detail(mou_id: int, db: Session = Depends(get_db), current_user: Use
         project_status=mou.project.status
     )
 
-# endpoint 10: untuk memperbarui status persetujuan MoU (misal: Approved atau Request Revision) oleh pelanggan
+# endpoint 11: untuk memperbarui status persetujuan MoU (misal: Approved atau Request Revision) oleh pelanggan
 @router.patch("/mou/{mou_id}/status")
 def update_mou_status(mou_id: int, data: MoUStatusUpdate, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     # memastikan hanya client yang dapat mengubah status MoU
@@ -70,7 +88,7 @@ def update_mou_status(mou_id: int, data: MoUStatusUpdate, db: Session = Depends(
     db.commit()
     return {"status": project.status, "message": message}
 
-# endpoint 11: untuk melakukan penandatanganan digital pada MoU yang telah diverifikasi
+# endpoint 12: untuk melakukan penandatanganan digital pada MoU yang telah diverifikasi
 @router.post("/mou/{mou_id}/sign")
 def sign_mou(mou_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     mou = db.query(MoU).filter(MoU.id == mou_id).first()
