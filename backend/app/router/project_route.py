@@ -14,14 +14,21 @@ router = APIRouter()
 @router.post("/projects")
 def create_project(data: ProjectCreate, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     if current_user.role != "client":
-        raise HTTPException(status_code=403, detail="Only clients send briefs")
+        raise HTTPException(status_code=403, detail="Only clients can create brief projects")
+    
     new_project = Project(
-        client_id=current_user.id, vendor_id=data.vendor_id, name=data.name,
-        location=data.location, event_date=data.event_date, budget_limit=data.budget_limit,
-        status="REQUESTED"
+        client_id=current_user.user_id,
+        vendor_id=None,
+        name=data.name,
+        location=data.location,
+        event_date=data.event_date,
+        budget_limit=data.budget_limit,
+        status="BRIEF",
+        description=data.description
     )
     db.add(new_project)
     db.commit()
+    db.refresh(new_project)
     return new_project
 
 # endpoint 4: untuk mengirimkan draf proposal penawaran awal dari vendor ke dalam proyek
@@ -29,11 +36,18 @@ def create_project(data: ProjectCreate, db: Session = Depends(get_db), current_u
 def send_proposal(id: int, data: ProposalCreate, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     if current_user.role != "vendor":
         raise HTTPException(status_code=403, detail="Only vendors send proposals")
+    
+    project = db.query(Project).filter(Project.project_id == id).first()
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+    
     proposal = Proposal(project_id=id, price=data.price, scope=data.scope, timeline=data.timeline)
     db.add(proposal)
-    project = db.query(Project).filter(Project.id == id).first()
+    
+    # update status proyek menjadi NEGOTIATING
     project.status = "NEGOTIATING"
     db.commit()
+    db.refresh(proposal)
     return proposal
 
 # endpoint 5: untuk mendapatkan riwayat pesan negosiasi antara client dan vendor
@@ -87,7 +101,7 @@ def send_message(id: int, data: MessageCreate, db: Session = Depends(get_db), cu
 
 # endpoint 7: untuk memperbarui isi proposal penawaran berdasarkan hasil revisi negosiasi
 @router.put("/proposals/{proposal_id}")
-def update_proposal(proposal_id: int, data: ProposalUpdate, db: Session = Depends(get_db)):
+def update_proposal(proposal_id: int, data: ProposalUpdate, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     proposal = db.query(Proposal).filter(Proposal.id == proposal_id).first()
     if not proposal:
         raise HTTPException(status_code=404, detail="Proposal not found")
