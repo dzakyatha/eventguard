@@ -8,7 +8,7 @@ from app.db.database import Base
 # tabel pengguna: client, vendor, dan admin
 class User(Base):
     __tablename__ = "user"
-    user_id = Column(Integer, primary_key=True, index=True)
+    id = Column(Integer, primary_key=True, index=True)
     username = Column(String, unique=True, index=True)
     password = Column(String)
     role = Column(String) # "client", "vendor", atau "admin"
@@ -27,9 +27,9 @@ class User(Base):
 # tabel proyek
 class Project(Base):
     __tablename__ = "project"
-    project_id = Column(Integer, primary_key=True, index=True)
-    client_id = Column(Integer, ForeignKey("user.user_id"))
-    vendor_id = Column(Integer, ForeignKey("user.user_id"), nullable=True)
+    id = Column(Integer, primary_key=True, index=True)
+    client_id = Column(Integer, ForeignKey("user.id"))
+    vendor_id = Column(Integer, ForeignKey("user.id"), nullable=True)
     name = Column(String)
     description = Column(Text)
 
@@ -57,7 +57,7 @@ class Project(Base):
 class Proposal(Base):
     __tablename__ = "proposal"
     id = Column(Integer, primary_key=True, index=True)
-    project_id = Column(Integer, ForeignKey("project.project_id"))
+    project_id = Column(Integer, ForeignKey("project.id"))
 
     # atribut untuk status proposal = "DRAFT"
     scope = Column(Text)
@@ -79,7 +79,7 @@ class Proposal(Base):
 class MoU(Base):
     __tablename__ = "mou"
     id = Column(Integer, primary_key=True, index=True)
-    project_id = Column(Integer, ForeignKey("project.project_id"))
+    project_id = Column(Integer, ForeignKey("project.id"))
     file_url = Column(String)
     is_signed = Column(Integer, default=0) # 0 = No, 1 = Yes
     
@@ -105,7 +105,7 @@ class MoU(Base):
 class Invoice(Base):
     __tablename__ = "invoice"
     id = Column(Integer, primary_key=True, index=True)
-    project_id = Column(Integer, ForeignKey("project.project_id"))
+    project_id = Column(Integer, ForeignKey("project.id"))
     amount = Column(Integer)
     status = Column(String, default="UNPAID") # UNPAID, PAID, OVERDUE
     term = Column(String) # "TERMIN 1 (DP 50%)"
@@ -120,8 +120,8 @@ class Invoice(Base):
 class Message(Base):
     __tablename__ = "messages"
     id = Column(Integer, primary_key=True, index=True)
-    project_id = Column(Integer, ForeignKey("projects.id"))
-    sender_id = Column(Integer, ForeignKey("users.id"))
+    project_id = Column(Integer, ForeignKey("project.id"))
+    sender_id = Column(Integer, ForeignKey("user.id"))
     text = Column(Text)
     sent_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 
@@ -132,8 +132,8 @@ class Message(Base):
 class Notification(Base):
     __tablename__ = "notification"
     id = Column(Integer, primary_key=True, index=True)
-    user_id = Column(Integer, ForeignKey("user.user_id"))
-    project_id = Column(Integer, ForeignKey("project.project_id"), nullable=True)
+    user_id = Column(Integer, ForeignKey("user.id"))
+    project_id = Column(Integer, ForeignKey("project.id"), nullable=True)
     message = Column(Text)
     is_read = Column(Integer, default=0) # 0 = unread, 1 = read
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
