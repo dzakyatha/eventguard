@@ -1,35 +1,44 @@
-from fastapi import FastAPI, Depends
-from sqlalchemy.orm import Session
 from contextlib import asynccontextmanager
-from app.db.database import get_db, engine, Base
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
+from app.db.database import SessionLocal, engine
+from app.db import models
+from app.router import auth_route, project_route, mou_route, vendor_route
 
-# lifespan event utk membuat tabel saat startup
+models.Base.metadata.create_all(bind=engine)
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Startup: membuat tabel database
-    Base.metadata.create_all(bind=engine)
-    print("Database tables created")
+    db = SessionLocal()
+
+    # dummy data untuk client
+    if not db.query(models.User).filter_by(username="rina_eo").first():
+        db.add(models.User(username="rina_eo", password="password123", role="client"))
+    
+    # dummy data untuk vendor
+    if not db.query(models.User).filter_by(username="sound_bandung").first():
+        db.add(models.User(
+        username="sound_bandung", 
+        password="password123", 
+        role="vendor",
+        # profile data
+        vendor_name="Sound System Bandung",
+        category="Sound System",
+        location="Bandung",
+        rating="4.8",
+        description="Menyediakan layanan sound system berkualitas untuk berbagai acara",
+    ))
+    
+    db.commit()
+    db.close()
     yield
-    # Shutdown
-    print("Application shutting down")
 
 app = FastAPI(lifespan=lifespan)
+app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_credentials=True, allow_methods=["*"], allow_headers=["*"])
+app.mount("/static", StaticFiles(directory="static"), name="static")
 
-@app.get("/")
-def read_root():
-    return {"message": "Hello World"}
-
-# testing koneksi database
-@app.get("/test-db")
-def test_database(db: Session = Depends(get_db)):
-    try:
-        db.execute("SELECT 1")
-        return {"status": "success", "message": "Database connection successful"}
-    except Exception as e:
-        return {"status": "error", "message": str(e)}
-
-def main():
-    print("Hello from backend!")
-
-if __name__ == "__main__":
-    main()
+app.include_router(auth_route.router)
+app.include_router(vendor_route.router)
+app.include_router(project_route.router)
+app.include_router(mou_route.router)
