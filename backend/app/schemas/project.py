@@ -17,6 +17,18 @@ class ProposalCreate(BaseModel):
     scope: str
     timeline: str
 
+# skema untuk get proposal
+class ProposalResponse(BaseModel):
+    id: int
+    project_id: int
+    price: int
+    scope: str
+    timeline: str
+    status: str
+
+    class Config:
+        from_attributes = True
+
 # skema untuk update proposal oleh vendor
 class ProposalUpdate(BaseModel):
     price: int
