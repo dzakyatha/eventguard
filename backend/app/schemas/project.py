@@ -1,6 +1,7 @@
 # skrip untuk skema project dan proposal
 
 from pydantic import BaseModel
+from datetime import datetime
 
 # skema untuk klien mengirimkan brief
 class ProjectCreate(BaseModel):
@@ -22,8 +23,22 @@ class ProposalUpdate(BaseModel):
     scope: str
     timeline: str
 
-# skema untuk chat message
-class ChatMessage(BaseModel):
-    sender: str
+# skema untuk chatting
+class MessageCreate(BaseModel):
     text: str
-    timestamp: str
+
+class MessageResponse(BaseModel):
+    id: int
+    sender_username: str
+    text: str
+    timestamp: datetime
+
+    class Config:
+        from_attributes = True
+
+# skema untuk notifikasi
+class NotificationResponse(BaseModel):
+    id: int
+    message: str
+    is_read: int
+    created_at: datetime

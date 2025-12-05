@@ -116,6 +116,18 @@ class Invoice(Base):
     # relationship
     project = relationship("Project", back_populates="invoices")
 
+# tabel pesan
+class Message(Base):
+    __tablename__ = "messages"
+    id = Column(Integer, primary_key=True, index=True)
+    project_id = Column(Integer, ForeignKey("projects.id"))
+    sender_id = Column(Integer, ForeignKey("users.id"))
+    text = Column(Text)
+    sent_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+
+    # Relationships
+    sender = relationship("User")
+
 # tabel notifikasi
 class Notification(Base):
     __tablename__ = "notification"
