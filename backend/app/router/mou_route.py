@@ -6,7 +6,7 @@ from datetime import datetime, timezone
 from app.db.database import get_db
 from app.db.models import Project, MoU, Invoice, User
 from app.dependencies import get_current_user
-from backend.app.schemas.mou import MoUResponse, MoUStatusUpdate
+from app.schemas.mou import MoUResponse, MoUStatusUpdate
 
 router = APIRouter()
 
