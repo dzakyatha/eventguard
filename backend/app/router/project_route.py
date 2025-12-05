@@ -83,10 +83,10 @@ def send_message(id: int, data: MessageCreate, db: Session = Depends(get_db), cu
     new_message = Message(
         project_id=id, 
         sender_id=current_user.id,
-        sender=data.sender,
+        sender=current_user.username,
         text=data.text
     )
-    
+
     db.add(new_message)
     db.commit()
     db.refresh(new_message)
