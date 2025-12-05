@@ -35,7 +35,23 @@ async def lifespan(app: FastAPI):
     yield
 
 app = FastAPI(lifespan=lifespan)
-app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_credentials=True, allow_methods=["*"], allow_headers=["*"])
+
+# CORS untuk production
+origins = [
+    "http://localhost:3000",
+    "http://localhost:5173",
+    "https://*.railway.app",  # Railway frontend
+    # frontend domain 
+]
+
+app.add_middleware(
+    CORSMiddleware, 
+    allow_origins=origins,  
+    allow_credentials=True, 
+    allow_methods=["*"], 
+    allow_headers=["*"]
+)
+
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
 app.include_router(auth_route.router)
