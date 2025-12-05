@@ -64,18 +64,14 @@ def send_proposal(id: int, data: ProposalCreate, db: Session = Depends(get_db), 
 # endpoint 5: untuk mendapatkan riwayat pesan negosiasi antara client dan vendor
 @router.get("/projects/{id}/messages", response_model=list[MessageResponse])
 def get_messages(id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
-    project = db.query(Project).filter(Project.id == id).first()
-    if not project:
-        raise HTTPException(status_code=404, detail="Project not found")
-    
     messages = db.query(Message).filter(Message.project_id == id).all()
     
     return [
         MessageResponse(
-            id=msg.id, 
-            sender_username=msg.sender.username, 
-            text=msg.text, 
-            timestamp=msg.sent_at
+            id=msg.id,
+            sender_username=msg.user.username,
+            text=msg.text,
+            timestamp=msg.timestamp
         ) 
         for msg in messages
     ]
@@ -95,11 +91,10 @@ def send_message(id: int, data: MessageCreate, db: Session = Depends(get_db), cu
     new_message = Message(
         project_id=id, 
         sender_id=current_user.id,
-        sender=current_user.username,
         text=data.text
     )
-
     db.add(new_message)
+    
     db.commit()
     db.refresh(new_message)
     
