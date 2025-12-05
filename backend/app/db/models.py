@@ -31,6 +31,7 @@ class Project(Base):
     client_id = Column(Integer, ForeignKey("user.user_id"))
     vendor_id = Column(Integer, ForeignKey("user.user_id"), nullable=True)
     name = Column(String)
+    description = Column(Text)
 
     # atribut untuk status proyek = BRIEF
     location = Column(String)
