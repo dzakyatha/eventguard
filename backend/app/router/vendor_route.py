@@ -26,9 +26,9 @@ def get_vendors(category: Optional[str] = None, location: Optional[str] = None, 
 
 # endpoint 2: untuk mendapatkan detail vendor berdasarkan ID
 @router.get("/vendors/{vendor_id}", response_model=VendorResponse)
-def get_vendor(vendor_id: int, db: Session = Depends(get_db)):
+def get_vendor_by_id(vendor_id: int, db: Session = Depends(get_db)):
     # mencari user dengan role = "vendor"
-    vendor = db.query(User).filter(User.user_id == vendor_id, User.role == "vendor").first()
+    vendor = db.query(User).filter(User.id == vendor_id, User.role == "vendor").first()
     if not vendor:
         raise HTTPException(status_code=404, detail="Vendor not found")
     return vendor
