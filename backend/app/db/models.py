@@ -87,6 +87,16 @@ class MoU(Base):
     # relationship
     project = relationship("Project", back_populates="mou")
 
+# table invoice
+class Invoice(Base):
+    __tablename__ = "invoice"
+    id = Column(Integer, primary_key=True, index=True)
+    project_id = Column(Integer, ForeignKey("project.project_id"))
+    amount = Column(Integer)
+    status = Column(String, default="UNPAID") # UNPAID, PAID
+    term = Column(String) # "TERMIN 1 (DP 50%)"
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+
 # tabel notifikasi
 class Notification(Base):
     __tablename__ = "notification"
