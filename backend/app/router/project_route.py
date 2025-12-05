@@ -12,12 +12,24 @@ router = APIRouter()
 # endpoint 3: untuk klien membuat proyek baru kepada vendor yang dipilih
 @router.post("/projects")
 def create_project(data: ProjectCreate, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
-    if current_user.role != "client":
-        raise HTTPException(status_code=403, detail="Only clients can create brief projects")
     
+    # memastikan hanya client yang dapat membuat brief proyek
+    if current_user.role != "client":
+        raise HTTPException(status_code=403, detail="Only clients can create projects")
+    
+    # mencari vendor berdasarkan username yang diberikan
+    vendor = db.query(User).filter(
+        User.username == data.vendor_username,
+        User.role == "vendor"
+    ).first()
+    
+    if not vendor:
+        raise HTTPException(status_code=404, detail=f"Vendor '{data.vendor_username}' not found")
+    
+    # membuat proyek baru dengan vendor yang telah dipilih
     new_project = Project(
         client_id=current_user.id,
-        vendor_id=None,
+        vendor_id=vendor.id,
         name=data.name,
         location=data.location,
         event_date=data.event_date,

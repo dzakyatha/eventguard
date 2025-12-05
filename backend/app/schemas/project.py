@@ -2,14 +2,16 @@
 
 from pydantic import BaseModel
 from datetime import datetime
+from typing import Optional
 
 # skema untuk klien mengirimkan brief
 class ProjectCreate(BaseModel):
+    vendor_username: str  # ADD THIS
     name: str
     location: str
     event_date: str
     budget_limit: int
-    description: str
+    description: Optional[str] = None
 
 # skema untuk vendor mengirimkan draft proposal
 class ProposalCreate(BaseModel):
