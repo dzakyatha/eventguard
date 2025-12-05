@@ -21,9 +21,7 @@ class User(Base):
     rating = Column(String, nullable=True)
     description = Column(Text, nullable=True)
     
-    # relationship
-    notifications = relationship("Notification", back_populates="user")
-
+    
 # tabel proyek
 class Project(Base):
     __tablename__ = "project"
@@ -50,7 +48,6 @@ class Project(Base):
     # relationships
     proposals = relationship("Proposal", back_populates="project")
     mou = relationship("MoU", back_populates="project", uselist=False)
-    notifications = relationship("Notification", back_populates="project")
     invoices = relationship("Invoice", back_populates="project")
 
 # tabel proposal
@@ -59,12 +56,11 @@ class Proposal(Base):
     id = Column(Integer, primary_key=True, index=True)
     project_id = Column(Integer, ForeignKey("project.id"))
 
-    # atribut untuk status proposal = "DRAFT"
-    scope = Column(Text)
+    # atribut untuk proposal
+    scope = Column(Text)  # apa yang akan vendor sediakan
     timeline = Column(String)
     price = Column(Integer)
 
-    description = Column(Text)
     status = Column(String, default="DRAFT") # DRAFT, SUBMITTED, ACCEPTED, REJECTED
     
     # tracking revisi dengan timestamp
@@ -122,22 +118,9 @@ class Message(Base):
     id = Column(Integer, primary_key=True, index=True)
     project_id = Column(Integer, ForeignKey("project.id"))
     sender_id = Column(Integer, ForeignKey("user.id"))
+    sender = Column(String)  # "client" atau "vendor"
     text = Column(Text)
     sent_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 
     # Relationships
     sender = relationship("User")
-
-# tabel notifikasi
-class Notification(Base):
-    __tablename__ = "notification"
-    id = Column(Integer, primary_key=True, index=True)
-    user_id = Column(Integer, ForeignKey("user.id"))
-    project_id = Column(Integer, ForeignKey("project.id"), nullable=True)
-    message = Column(Text)
-    is_read = Column(Integer, default=0) # 0 = unread, 1 = read
-    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
-    
-    # relationships
-    user = relationship("User", back_populates="notifications")
-    project = relationship("Project", back_populates="notifications")

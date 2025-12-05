@@ -3,10 +3,9 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from app.db.database import get_db
-from app.db.models import Message, Notification, Project, Proposal, User
-from app.schemas.project import MessageResponse, ProjectCreate, ProposalUpdate, MessageCreate, ProposalCreate
+from app.db.models import Message, Project, Proposal, User
+from app.schemas.project import MessageResponse, ProjectCreate, ProposalUpdate, MessageCreate, ProposalCreate, ProposalResponse
 from app.dependencies import get_current_user
-from datetime import datetime
 
 router = APIRouter()
 
@@ -17,7 +16,7 @@ def create_project(data: ProjectCreate, db: Session = Depends(get_db), current_u
         raise HTTPException(status_code=403, detail="Only clients can create brief projects")
     
     new_project = Project(
-        client_id=current_user.user_id,
+        client_id=current_user.id,
         vendor_id=None,
         name=data.name,
         location=data.location,
@@ -37,7 +36,7 @@ def send_proposal(id: int, data: ProposalCreate, db: Session = Depends(get_db), 
     if current_user.role != "vendor":
         raise HTTPException(status_code=403, detail="Only vendors send proposals")
     
-    project = db.query(Project).filter(Project.project_id == id).first()
+    project = db.query(Project).filter(Project.id == id).first()
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
     
@@ -64,49 +63,62 @@ def get_messages(id: int, db: Session = Depends(get_db), current_user: User = De
             id=msg.id, 
             sender_username=msg.sender.username, 
             text=msg.text, 
-            timestamp=msg.created_at
+            timestamp=msg.sent_at
         ) 
         for msg in messages
     ]
 
-# endpoint 6: untuk mengirimkan pesan negosiasi terkait revisi penawaran
+# endpoint 6: untuk mengirim pesan negosiasi terkait revisi penawaran
 @router.post("/projects/{id}/messages")
 def send_message(id: int, data: MessageCreate, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     project = db.query(Project).filter(Project.id == id).first()
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
-
-    new_msg = Message(
-        project_id=id,
+    
+    # cek apakah user adalah client atau vendor dari proyek ini
+    if current_user.id != project.client_id and current_user.id != project.vendor_id:
+        raise HTTPException(status_code=403, detail="Not authorized for this project")
+    
+    # membuat pesan baru
+    new_message = Message(
+        project_id=id, 
         sender_id=current_user.id,
+        sender=data.sender,
         text=data.text
     )
-    db.add(new_msg)
-
-    recipient_user_id = None        
-    if current_user.id == project.client_id:
-        recipient_user_id = 2 # id dummy
-    else:
-        recipient_user_id = project.client_id
-
-    if recipient_user_id:
-        notif = Notification(
-            user_id=recipient_user_id,
-            message=f"New message in {project.name}: {data.text[:20]}..."
-        )
-        db.add(notif)
-
+    
+    db.add(new_message)
     db.commit()
-    return {"status": "sent"}
+    db.refresh(new_message)
+    
+    return new_message
 
-# endpoint 7: untuk memperbarui isi proposal penawaran berdasarkan hasil revisi negosiasi
+# endpoint 7: untuk mendapatkan detail proposal tertentu berdasarkan ID
+@router.get("/proposals/{proposal_id}", response_model=ProposalResponse)
+def get_proposal_by_id(proposal_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    proposal = db.query(Proposal).filter(Proposal.id == proposal_id).first()
+    if not proposal:
+        raise HTTPException(status_code=404, detail="Proposal not found")
+    return proposal
+
+# endpoint 8: untuk memperbarui isi proposal penawaran berdasarkan hasil revisi negosiasi
 @router.put("/proposals/{proposal_id}")
 def update_proposal(proposal_id: int, data: ProposalUpdate, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     proposal = db.query(Proposal).filter(Proposal.id == proposal_id).first()
     if not proposal:
         raise HTTPException(status_code=404, detail="Proposal not found")
 
-    proposal.price = data.price
-    proposal.description = data.description
+    # hanya update atribut yang diubah
+    if data.price is not None:
+        proposal.price = data.price
+    if data.scope is not None:
+        proposal.scope = data.scope
+    if data.timeline is not None:
+        proposal.timeline = data.timeline
+    
+    # increment versi proposal
+    proposal.version += 1
+    
     db.commit()
+    db.refresh(proposal)
     return proposal
