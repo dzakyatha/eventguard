@@ -3,7 +3,7 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from app.db.database import get_db
-from app.db.models import Message, Project, Proposal, User
+from app.db.models import Message, Project, Proposal, User, MoU
 from app.schemas.project import MessageResponse, ProjectCreate, ProposalUpdate, MessageCreate, ProposalCreate, ProposalResponse
 from app.dependencies import get_current_user
 
@@ -122,3 +122,53 @@ def update_proposal(proposal_id: int, data: ProposalUpdate, db: Session = Depend
     db.commit()
     db.refresh(proposal)
     return proposal
+
+@router.get("/projects")
+def get_my_projects(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    # Jika user Client, tampilkan proyek yang dia buat
+    if current_user.role == "client":
+        return db.query(Project).filter(Project.client_id == current_user.id).all()
+    
+    # Jika user Vendor, tampilkan proyek yang masuk ke dia
+    elif current_user.role == "vendor":
+        # Catatan: Karena saat create_project vendor_id = None, 
+        # vendor mungkin tidak melihat proyek baru sampai ada mekanisme 'claim' atau 'assign'.
+        # Namun untuk MVP, ini query standarnya:
+        return db.query(Project).all()
+    
+    return []
+
+# Endpoint 10: Mendapatkan detail satu proyek (Untuk halaman Sign MoU & Chat)
+@router.get("/projects/{id}")
+def get_project_detail(id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    project = db.query(Project).filter(Project.id == id).first()
+    
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+    
+    # Validasi keamanan: Pastikan hanya pemilik proyek yang bisa melihat
+    if current_user.role == "client" and project.client_id != current_user.id:
+        raise HTTPException(status_code=403, detail="Not authorized")
+    
+    # Untuk vendor, validasi dilonggarkan dulu agar bisa melihat brief baru
+    
+    return project
+
+@router.get("/projects/{id}/mou")
+def get_mou_by_project(id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    # Cari MoU berdasarkan Project ID
+    mou = db.query(MoU).filter(MoU.project_id == id).first()
+    
+    if not mou:
+        # Jika belum ada MoU, kembalikan 404 agar frontend tahu
+        raise HTTPException(status_code=404, detail="MoU not yet generated")
+    
+    # Return data lengkap MoU (termasuk ID-nya)
+    return {
+        "id": mou.id,
+        "project_id": mou.project_id,
+        "file_url": mou.file_url,
+        "created_at": mou.created_at,
+        "client_signed_at": mou.client_signed_at,
+        "vendor_signed_at": mou.vendor_signed_at
+    }
