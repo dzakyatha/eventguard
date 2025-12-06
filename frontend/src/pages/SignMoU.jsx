@@ -1,0 +1,199 @@
+import { useState, useEffect } from 'react';
+import { useParams, useNavigate } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
+import client from '../api/client';
+import { ENDPOINTS } from '../api/endpoints';
+
+const SignMoU = () => {
+    const { projectId } = useParams();
+    const { user } = useAuth();
+    const navigate = useNavigate();
+    
+    const [project, setProject] = useState(null);
+    const [mouId, setMouId] = useState(null);
+    const [loading, setLoading] = useState(true);
+    
+    // State Form
+    const [signedName, setSignedName] = useState('');
+    const [isAgreed, setIsAgreed] = useState(false);
+
+    useEffect(() => {
+        const fetchData = async () => {
+        try {
+            const resProject = await client.get(ENDPOINTS.PROJECTS.DETAIL(projectId));
+            setProject(resProject.data);
+            
+            try {
+            const resMoU = await client.get(ENDPOINTS.MOU.GET_BY_PROJECT(projectId));
+            setMouId(resMoU.data.id);
+            } catch (err) {
+            console.log("MoU belum ada atau gagal diambil", err);
+            }
+
+        } catch (error) {
+            console.error("Gagal load data:", error);
+            alert("Gagal memuat data proyek.");
+        } finally {
+            setLoading(false);
+        }
+        };
+        fetchData();
+    }, [projectId]);
+
+    const handleApprove = async () => {
+        if (!mouId) return alert("Error: ID MoU tidak ditemukan. Coba refresh.");
+        
+        if(!confirm("Apakah Anda yakin menyetujui isi dokumen ini?")) return;
+
+        try {
+        await client.patch(ENDPOINTS.MOU.UPDATE_STATUS(mouId), {
+            action: "APPROVE",
+            feedback: "Disetujui oleh Client"
+        });
+        alert("MoU Disetujui! Silakan lanjutkan ke tanda tangan.");
+        window.location.reload(); 
+        } catch (error) {
+        console.error("Gagal approve:", error);
+        alert("Gagal menyetujui MoU.");
+        }
+    };
+
+    const handleRevise = async () => {
+        if (!mouId) return alert("Error: ID MoU tidak ditemukan.");
+
+        const alasan = prompt("Masukkan catatan revisi untuk Vendor:");
+        if (!alasan) return;
+
+        try {
+        await client.patch(ENDPOINTS.MOU.UPDATE_STATUS(mouId), {
+            action: "REVISE",
+            feedback: alasan
+        });
+        alert("Permintaan revisi telah dikirim ke Vendor.");
+        navigate('/dashboard'); 
+        } catch (error) {
+        console.error("Gagal revisi:", error);
+        alert("Gagal mengirim revisi.");
+        }
+    };
+
+    const handleSign = async () => {
+        if (!mouId) return;
+        try {
+        await client.post(ENDPOINTS.MOU.SIGN(mouId));
+        alert("Berhasil ditandatangani!");
+        navigate('/dashboard');
+        } catch (error) {
+        console.error("Gagal sign:", error);
+        alert("Gagal tanda tangan.");
+        }
+    };
+
+    if (loading) return <div className="p-10 text-center">Memuat dokumen...</div>;
+    if (!project) return <div className="p-10 text-center">Proyek tidak ditemukan.</div>;
+
+    const isClient = user.role === 'client';
+    const status = project.status;
+
+    return (
+        <div className="max-w-4xl mx-auto mt-6">
+            <button 
+                onClick={() => navigate('/dashboard')} 
+                className="mb-4 flex items-center text-gray-500 hover:text-indigo-600 transition-colors font-medium ml-1"
+            >
+                ← Kembali ke Dashboard
+            </button>
+
+        <div className="md:col-span-2 border p-8 bg-gray-50 h-[80vh] overflow-y-auto font-serif text-sm leading-relaxed text-justify">
+            <div className="text-center mb-6">
+            <h1 className="font-bold text-xl underline">MEMORANDUM OF UNDERSTANDING</h1>
+            <p className="text-xs text-gray-500 mt-1">Ref: MOU-{mouId || '???'}/{project.id}</p>
+            </div>
+            
+            <p className="mb-4">
+                Perjanjian kerjasama ini dibuat pada tanggal <strong>{new Date().toLocaleDateString('id-ID')}</strong> untuk pelaksanaan proyek:
+            </p>
+
+            <div className="bg-white border p-4 mb-4 rounded">
+            <table className="w-full text-left">
+                <tbody>
+                <tr><td className="w-32 font-bold">Nama Acara</td><td>: {project.name}</td></tr>
+                <tr><td className="font-bold">Lokasi</td><td>: {project.location}</td></tr>
+                <tr><td className="font-bold">Tanggal</td><td>: {project.event_date}</td></tr>
+                <tr><td className="font-bold">Nilai Kontrak</td><td>: Rp {project.budget_limit.toLocaleString()}</td></tr>
+                </tbody>
+            </table>
+            </div>
+
+            <h3 className="font-bold mt-4">Pasal 1: Lingkup Pekerjaan</h3>
+            <p>{project.description}</p>
+            
+            <h3 className="font-bold mt-4">Pasal 2: Pembayaran</h3>
+            <p>Pembayaran dilakukan melalui Escrow EventGuard dengan termin: DP 50%, Termin 2 20%, Pelunasan 30%.</p>
+
+            <div className="mt-10 pt-10 border-t text-center text-gray-400 italic">
+            -- Akhir Dokumen --
+            </div>
+        </div>
+
+        <div className="md:col-span-1 flex flex-col gap-4">
+            
+            <div className={`p-4 rounded border ${status === 'ACTIVE' ? 'bg-green-50 border-green-200' : 'bg-blue-50 border-blue-200'}`}>
+                <h3 className="font-bold mb-1 text-gray-700">Status Proyek</h3>
+                <span className="font-mono text-sm font-semibold">{status}</span>
+            </div>
+
+            {status === 'MOU_DRAFT' && isClient && (
+                <div className="bg-white border p-4 rounded shadow-sm">
+                    <h3 className="font-bold mb-2 border-b pb-2">Aksi Diperlukan</h3>
+                    <p className="text-sm text-gray-600 mb-4">
+                        Mohon pelajari dokumen. Anda dapat menyetujui atau meminta revisi.
+                    </p>
+                    <div className="flex flex-col gap-2">
+                        <button onClick={handleRevise} className="w-full border border-red-300 text-red-600 py-2 rounded text-sm hover:bg-red-50 font-medium">
+                            Minta Revisi
+                        </button>
+                        <button onClick={handleApprove} className="w-full bg-blue-600 text-white py-2 rounded text-sm hover:bg-blue-700 font-bold shadow">
+                            ✅ Setujui (Approve)
+                        </button>
+                    </div>
+                </div>
+            )}
+
+            {status === 'READY_TO_SIGN' && (
+                <div className="bg-white border p-4 rounded shadow-sm">
+                    <h3 className="font-bold mb-2 border-b pb-2">Tanda Tangan</h3>
+                    <input 
+                        type="text" 
+                        placeholder="Ketik Nama Lengkap"
+                        className="w-full border p-2 rounded mb-2 text-sm bg-gray-50"
+                        value={signedName}
+                        onChange={(e) => setSignedName(e.target.value)}
+                    />
+                    <label className="flex items-start gap-2 text-sm mb-4 cursor-pointer select-none">
+                        <input type="checkbox" className="mt-1" checked={isAgreed} onChange={(e) => setIsAgreed(e.target.checked)} />
+                        <span>Saya menyetujui isi MoU ini secara sadar dan sah secara hukum digital.</span>
+                    </label>
+                    <button 
+                        onClick={handleSign}
+                        disabled={!isAgreed || !signedName}
+                        className="w-full bg-green-600 text-white py-3 rounded font-bold hover:bg-green-700 disabled:bg-gray-300 disabled:cursor-not-allowed shadow transition-colors"
+                    >
+                        ✍️ Tanda Tangan Sekarang
+                    </button>
+                </div>
+            )}
+
+            {status === 'ACTIVE' && (
+                <div className="bg-green-50 p-6 rounded border border-green-200 text-center shadow-sm">
+                    <div className="text-4xl mb-2">🤝</div>
+                    <h3 className="font-bold text-green-800">Sah & Aktif</h3>
+                    <p className="text-sm text-green-700 mt-1">Proyek ini telah berjalan.</p>
+                </div>
+            )}
+        </div>
+        </div>
+    );
+};
+
+export default SignMoU;
