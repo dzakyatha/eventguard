@@ -45,6 +45,7 @@ def send_proposal(id: int, data: ProposalCreate, db: Session = Depends(get_db), 
     
     # update status proyek menjadi NEGOTIATING
     project.status = "NEGOTIATING"
+    project.vendor_id = current_user.id
     db.commit()
     db.refresh(proposal)
     return proposal
@@ -83,7 +84,6 @@ def send_message(id: int, data: MessageCreate, db: Session = Depends(get_db), cu
     new_message = Message(
         project_id=id, 
         sender_id=current_user.id,
-        sender=current_user.username,
         text=data.text
     )
     
