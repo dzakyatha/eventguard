@@ -41,7 +41,7 @@ origins = [
     "http://localhost:3000",
     "http://localhost:5173",
     "https://*.railway.app",  # Railway frontend
-    # frontend domain 
+    "https://eventguard-beta.vercel.app"
 ]
 
 app.add_middleware(
