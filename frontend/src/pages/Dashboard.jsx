@@ -1,173 +1,212 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import client from '../api/client';
 import { ENDPOINTS } from '../api/endpoints';
+import ChatBubble from '../components/ChatBubble'; // Import komponen Chat
 
 const Dashboard = () => {
-    const { user } = useAuth();
-    const navigate = useNavigate();
-    
-    const [projects, setProjects] = useState([]);
-    const [selectedProject, setSelectedProject] = useState(null);
-    const [loading, setLoading] = useState(true);
+  const { user } = useAuth();
+  const navigate = useNavigate();
+  
+  const [projects, setProjects] = useState([]);
+  const [selectedProject, setSelectedProject] = useState(null);
+  const [loading, setLoading] = useState(true);
 
-    const fetchProjects = async () => {
+  // State untuk Chat & Tab
+  const [activeTab, setActiveTab] = useState('detail'); // 'detail' or 'chat'
+  const [messages, setMessages] = useState([]);
+  const [newMessage, setNewMessage] = useState("");
+  const chatEndRef = useRef(null); // Auto-scroll ke bawah
+
+  // --- 1. FETCH PROJECTS ---
+  const fetchProjects = async () => {
+    try {
+      const res = await client.get(ENDPOINTS.PROJECTS.LIST);
+      setProjects(res.data);
+    } catch (error) {
+      console.error("Error fetching projects:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchProjects();
+  }, []);
+
+  // --- 2. FETCH MESSAGES (Saat Tab Chat Aktif) ---
+  useEffect(() => {
+    if (selectedProject && activeTab === 'chat') {
+      const fetchMessages = async () => {
         try {
-        const res = await client.get(ENDPOINTS.PROJECTS.LIST);
-        setProjects(res.data);
+          const res = await client.get(ENDPOINTS.PROJECTS.MESSAGES(selectedProject.id));
+          setMessages(res.data);
+          scrollToBottom();
         } catch (error) {
-        console.error("Error fetching projects:", error);
-        } finally {
-        setLoading(false);
+          console.error("Gagal ambil pesan", error);
         }
-    };
+      };
+      fetchMessages();
+      
+      // Auto-refresh chat setiap 3 detik (Simple Polling)
+      const interval = setInterval(fetchMessages, 3000);
+      return () => clearInterval(interval);
+    }
+  }, [selectedProject, activeTab]);
 
-    useEffect(() => {
-        fetchProjects();
-    }, []);
+  const scrollToBottom = () => {
+    chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  };
 
-    const handleSendProposal = async () => {
-        if (!selectedProject) return;
+  // --- 3. KIRIM PESAN ---
+  const handleSendMessage = async (e) => {
+    e.preventDefault();
+    if (!newMessage.trim()) return;
 
-        const proposalData = {
-        price: selectedProject.budget_limit || 10000000, 
-        scope: "Full Service sesuai request",
-        timeline: "1 Hari Acara"
-        };
+    try {
+      // Endpoint 6 Backend: POST /projects/{id}/messages
+      await client.post(ENDPOINTS.PROJECTS.MESSAGES(selectedProject.id), {
+        text: newMessage,
+        sender: user.username 
+      });
+      setNewMessage("");
+      
+      // Refresh manual agar langsung muncul
+      const res = await client.get(ENDPOINTS.PROJECTS.MESSAGES(selectedProject.id));
+      setMessages(res.data);
+      scrollToBottom();
+    } catch (error) {
+      console.error("Gagal kirim pesan:", error);
+      alert("Gagal mengirim pesan.");
+    }
+  };
 
-        try {
-        if(confirm(`Ambil proyek "${selectedProject.name}" dan kirim penawaran awal?`)) {
-            await client.post(ENDPOINTS.PROJECTS.SEND_PROPOSAL(selectedProject.id), proposalData);
-            alert("Proposal dikirim! Status proyek sekarang NEGOTIATING.");
-            
-            fetchProjects(); // Refresh agar status berubah
-            setSelectedProject(null); // Reset pilihan
-        }
-        } catch (error) {
-        console.error("Gagal kirim proposal:", error);
-        alert("Gagal mengambil proyek. Cek console.");
-        }
-    };
+  // --- FUNGSI TOMBOL AKSI (Sama seperti sebelumnya) ---
+  const handleSendProposal = async () => {
+    if (!selectedProject) return;
+    const proposalData = { price: selectedProject.budget_limit || 10000000, scope: "Full Service", timeline: "1 Hari" };
+    try {
+      if(confirm(`Ambil proyek "${selectedProject.name}"?`)) {
+        await client.post(ENDPOINTS.PROJECTS.SEND_PROPOSAL(selectedProject.id), proposalData);
+        alert("Proposal dikirim! Status NEGOTIATING.");
+        fetchProjects(); setSelectedProject(null);
+      }
+    } catch (error) { alert("Gagal ambil proyek."); }
+  };
 
-    const handleGenerateMoU = async () => {
-        if (!selectedProject) return;
-        try {
-        await client.post(ENDPOINTS.MOU.GENERATE(selectedProject.id));
-        alert("MoU berhasil dibuat! Menunggu review Client.");
-        fetchProjects();
-        setSelectedProject(null);
-        } catch (error) {
-        alert("Gagal membuat MoU. Pastikan status proyek NEGOTIATING.");
-        }
-    };
+  const handleGenerateMoU = async () => {
+    if (!selectedProject) return;
+    try {
+      await client.post(ENDPOINTS.MOU.GENERATE(selectedProject.id));
+      alert("MoU berhasil dibuat!");
+      fetchProjects(); setSelectedProject(null);
+    } catch (error) { alert("Gagal buat MoU."); }
+  };
 
-    const getStatusBadge = (status) => {
-        const map = {
-        'BRIEF': 'bg-gray-200 text-gray-700', 
-        'NEGOTIATING': 'bg-orange-100 text-orange-800',
-        'MOU_DRAFT': 'bg-blue-100 text-blue-800',
-        'READY_TO_SIGN': 'bg-purple-100 text-purple-800',
-        'ACTIVE': 'bg-green-100 text-green-800' 
-        };
-        return <span className={`px-2 py-1 rounded text-xs font-bold ${map[status] || 'bg-gray-100'}`}>{status}</span>;
-    };
+  const getStatusBadge = (status) => {
+    const map = { 'BRIEF': 'bg-gray-200', 'NEGOTIATING': 'bg-orange-100 text-orange-800', 'MOU_DRAFT': 'bg-blue-100 text-blue-800', 'READY_TO_SIGN': 'bg-purple-100 text-purple-800', 'ACTIVE': 'bg-green-100 text-green-800' };
+    return <span className={`px-2 py-1 rounded text-xs font-bold ${map[status]}`}>{status}</span>;
+  };
 
-    return (
-        <div className="flex h-[85vh] gap-6">
-        <div className="w-1/3 bg-white border border-gray-200 rounded-lg overflow-y-auto">
-            <div className="p-4 border-b bg-gray-50"><h2 className="font-bold text-gray-700">Proyek Saya</h2></div>
-            
-            {loading ? <p className="p-4">Memuat data...</p> : (
-            <ul>
-                {projects.map(p => (
-                <li key={p.id} onClick={() => setSelectedProject(p)} 
-                    className={`p-4 border-b cursor-pointer hover:bg-indigo-50 transition-colors ${selectedProject?.id === p.id ? 'bg-indigo-50 border-l-4 border-indigo-600' : ''}`}>
-                    <div className="flex justify-between mb-1">
-                    <h3 className="font-semibold truncate text-gray-900">{p.name}</h3>
-                    {getStatusBadge(p.status)}
-                    </div>
-                    <p className="text-xs text-gray-500">{p.location} • {p.event_date}</p>
-                </li>
-                ))}
-                {projects.length === 0 && <p className="p-4 text-gray-500 text-center">Belum ada proyek.</p>}
-            </ul>
-            )}
-        </div>
+  return (
+    <div className="flex h-[85vh] gap-6">
+      {/* Sidebar */}
+      <div className="w-1/3 bg-white border border-gray-200 rounded-lg overflow-y-auto">
+        <div className="p-4 border-b bg-gray-50"><h2 className="font-bold text-gray-700">Proyek Saya</h2></div>
+        <ul>
+          {projects.map(p => (
+            <li key={p.id} onClick={() => { setSelectedProject(p); setActiveTab('detail'); }} 
+                className={`p-4 border-b cursor-pointer hover:bg-indigo-50 ${selectedProject?.id === p.id ? 'bg-indigo-50 border-l-4 border-indigo-600' : ''}`}>
+              <div className="flex justify-between mb-1"><h3 className="font-semibold truncate">{p.name}</h3>{getStatusBadge(p.status)}</div>
+              <p className="text-xs text-gray-500">{p.location}</p>
+            </li>
+          ))}
+        </ul>
+      </div>
 
-        <div className="w-2/3 bg-white border border-gray-200 rounded-lg flex flex-col">
-            {selectedProject ? (
-            <>
-                <div className="p-5 border-b bg-gray-50 flex justify-between items-center rounded-t-lg">
-                <div>
-                    <h2 className="font-bold text-xl text-gray-800">{selectedProject.name}</h2>
-                    <p className="text-sm text-gray-500">Status: <span className="font-medium">{selectedProject.status}</span></p>
-                </div>
-
-                <div className="flex gap-2">
-                    {user.role === 'vendor' && selectedProject.status === 'BRIEF' && (
-                    <button onClick={handleSendProposal} className="bg-orange-600 hover:bg-orange-700 text-white px-4 py-2 rounded shadow font-bold text-sm transition-transform active:scale-95">
-                        🚀 Ambil Proyek
-                    </button>
-                    )}
-
-                    {user.role === 'vendor' && selectedProject.status === 'NEGOTIATING' && (
-                    <button onClick={handleGenerateMoU} className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded shadow font-bold text-sm">
-                        📄 Buat MoU Digital
-                    </button>
-                    )}
-
-                    {user.role === 'client' && selectedProject.status === 'MOU_DRAFT' && (
-                    <button onClick={() => navigate(`/sign-mou/${selectedProject.id}`)} className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded shadow font-bold text-sm">
-                        🔍 Review MoU
-                    </button>
-                    )}
-
-                    {selectedProject.status === 'READY_TO_SIGN' && (
-                    <button onClick={() => navigate(`/sign-mou/${selectedProject.id}`)} className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded shadow font-bold text-sm">
-                        ✍️ Tanda Tangan
-                    </button>
-                    )}
-                    
-                    {selectedProject.status === 'ACTIVE' && (
-                    <span className="bg-green-100 text-green-800 px-3 py-1 rounded border border-green-200 text-sm font-bold">
-                        ✅ Proyek Berjalan
-                    </span>
-                    )}
-                </div>
-                </div>
-                
-                <div className="flex-1 p-6 overflow-y-auto">
-                <div className="bg-blue-50 border border-blue-100 p-4 rounded-lg mb-6">
-                    <h3 className="text-blue-800 font-bold mb-2 text-sm uppercase tracking-wide">Detail Kebutuhan Client</h3>
-                    <p className="text-gray-700 leading-relaxed whitespace-pre-wrap">{selectedProject.description}</p>
-                </div>
-
-                <div className="grid grid-cols-2 gap-6">
-                    <div className="p-4 border rounded-lg bg-gray-50">
-                    <span className="block text-xs text-gray-500 uppercase font-bold">Budget Limit</span>
-                    <span className="text-lg font-semibold text-gray-800">Rp {selectedProject.budget_limit?.toLocaleString()}</span>
-                    </div>
-                    <div className="p-4 border rounded-lg bg-gray-50">
-                    <span className="block text-xs text-gray-500 uppercase font-bold">Lokasi Acara</span>
-                    <span className="text-lg font-semibold text-gray-800">{selectedProject.location}</span>
-                    </div>
-                    <div className="p-4 border rounded-lg bg-gray-50">
-                    <span className="block text-xs text-gray-500 uppercase font-bold">Tanggal</span>
-                    <span className="text-lg font-semibold text-gray-800">{selectedProject.event_date}</span>
-                    </div>
-                </div>
-                </div>
-            </>
-            ) : (
-            <div className="flex flex-col items-center justify-center h-full text-gray-400 bg-gray-50 rounded-r-lg">
-                <svg className="w-16 h-16 mb-4 opacity-20" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4zm2 6a1 1 0 011-1h6a1 1 0 110 2H7a1 1 0 01-1-1zm1 3a1 1 0 100 2h6a1 1 0 100-2H7z" clipRule="evenodd" /></svg>
-                <p>Pilih proyek di menu kiri untuk melihat detail.</p>
+      {/* Main Content */}
+      <div className="w-2/3 bg-white border border-gray-200 rounded-lg flex flex-col overflow-hidden">
+        {selectedProject ? (
+          <>
+            {/* Header */}
+            <div className="p-5 border-b bg-gray-50 flex justify-between items-center">
+              <div><h2 className="font-bold text-xl">{selectedProject.name}</h2><p className="text-sm text-gray-500">Status: {selectedProject.status}</p></div>
+              <div className="flex gap-2">
+                {user.role === 'vendor' && selectedProject.status === 'BRIEF' && <button onClick={handleSendProposal} className="bg-orange-600 text-white px-3 py-1 rounded text-sm font-bold">🚀 Ambil Proyek</button>}
+                {user.role === 'vendor' && selectedProject.status === 'NEGOTIATING' && <button onClick={handleGenerateMoU} className="bg-indigo-600 text-white px-3 py-1 rounded text-sm font-bold">📄 Buat MoU</button>}
+                {user.role === 'client' && selectedProject.status === 'MOU_DRAFT' && <button onClick={() => navigate(`/sign-mou/${selectedProject.id}`)} className="bg-blue-600 text-white px-3 py-1 rounded text-sm font-bold">🔍 Review MoU</button>}
+                {selectedProject.status === 'READY_TO_SIGN' && <button onClick={() => navigate(`/sign-mou/${selectedProject.id}`)} className="bg-green-600 text-white px-3 py-1 rounded text-sm font-bold">✍️ Tanda Tangan</button>}
+              </div>
             </div>
-            )}
-        </div>
-        </div>
-    );
+
+            {/* TAB SWITCHER */}
+            <div className="flex border-b">
+                <button 
+                    onClick={() => setActiveTab('detail')}
+                    className={`flex-1 py-3 text-sm font-bold text-center transition-colors ${activeTab === 'detail' ? 'border-b-2 border-indigo-600 text-indigo-600 bg-indigo-50' : 'text-gray-500 hover:bg-gray-50'}`}
+                >
+                    📋 Detail Proyek
+                </button>
+                <button 
+                    onClick={() => setActiveTab('chat')}
+                    className={`flex-1 py-3 text-sm font-bold text-center transition-colors ${activeTab === 'chat' ? 'border-b-2 border-indigo-600 text-indigo-600 bg-indigo-50' : 'text-gray-500 hover:bg-gray-50'}`}
+                >
+                    💬 Ruang Diskusi
+                </button>
+            </div>
+            
+            {/* CONTENT AREA */}
+            <div className="flex-1 overflow-y-auto bg-gray-50">
+                {activeTab === 'detail' ? (
+                    <div className="p-6">
+                        <div className="bg-white border p-4 rounded-lg mb-4">
+                            <h3 className="text-gray-500 text-xs font-bold uppercase mb-2">Deskripsi</h3>
+                            <p className="text-gray-800 whitespace-pre-wrap">{selectedProject.description}</p>
+                        </div>
+                        <div className="grid grid-cols-2 gap-4">
+                            <div className="bg-white border p-4 rounded-lg">
+                                <span className="text-gray-500 text-xs font-bold uppercase">Budget</span>
+                                <p className="font-semibold">Rp {selectedProject.budget_limit?.toLocaleString()}</p>
+                            </div>
+                            <div className="bg-white border p-4 rounded-lg">
+                                <span className="text-gray-500 text-xs font-bold uppercase">Lokasi</span>
+                                <p className="font-semibold">{selectedProject.location}</p>
+                            </div>
+                        </div>
+                    </div>
+                ) : (
+                    // TAMPILAN CHAT
+                    <div className="flex flex-col h-full">
+                        <div className="flex-1 p-4 overflow-y-auto space-y-2">
+                            {messages.length === 0 && <p className="text-center text-gray-400 text-sm mt-10">Belum ada pesan. Mulai diskusi sekarang.</p>}
+                            {messages.map((msg) => (
+                                <ChatBubble key={msg.id} message={msg} isMe={msg.sender_username === user.username} />
+                            ))}
+                            <div ref={chatEndRef} />
+                        </div>
+                        <form onSubmit={handleSendMessage} className="p-3 bg-white border-t flex gap-2">
+                            <input 
+                                type="text" 
+                                className="flex-1 border p-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm"
+                                placeholder="Tulis pesan..."
+                                value={newMessage}
+                                onChange={(e) => setNewMessage(e.target.value)}
+                            />
+                            <button type="submit" className="bg-indigo-600 text-white px-4 py-2 rounded-lg text-sm font-bold hover:bg-indigo-700">
+                                Kirim
+                            </button>
+                        </form>
+                    </div>
+                )}
+            </div>
+          </>
+        ) : (
+          <div className="flex items-center justify-center h-full text-gray-400">Pilih proyek di menu kiri.</div>
+        )}
+      </div>
+    </div>
+  );
 };
 
 export default Dashboard;

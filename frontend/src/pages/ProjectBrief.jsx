@@ -1,3 +1,4 @@
+// src/pages/ProjectBrief.jsx
 import { useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import client from '../api/client';
@@ -9,10 +10,10 @@ const ProjectBrief = () => {
     const [loading, setLoading] = useState(false);
     
     const [formData, setFormData] = useState({
-        name: '',     
-        location: '',  
+        name: '',         // Backend project.py minta 'name', bukan 'title'
+        location: '',     // Wajib
         event_date: '',
-        budget_limit: '',
+        budget_limit: '', // Harus di-convert ke int
         description: ''
     });
 
@@ -25,125 +26,72 @@ const ProjectBrief = () => {
         setLoading(true);
 
         try {
-        const payload = {
-            name: formData.name,
-            location: formData.location,
-            event_date: formData.event_date,
-            budget_limit: parseInt(formData.budget_limit),
-            description: formData.description
-        };
+            // Sesuai schema ProjectCreate di project.py
+            const payload = {
+                name: formData.name,
+                location: formData.location,
+                event_date: formData.event_date,
+                budget_limit: parseInt(formData.budget_limit),
+                description: formData.description
+            };
 
-        await client.post(ENDPOINTS.PROJECTS.CREATE, payload);
-        
-        alert("Brief berhasil dibuat!");
-        navigate('/dashboard');
+            await client.post(ENDPOINTS.PROJECTS.CREATE, payload);
+            
+            alert("Brief berhasil dibuat!");
+            navigate('/dashboard');
         } catch (error) {
-        console.error("Gagal membuat proyek:", error);
-        alert("Gagal kirim brief. Pastikan semua field terisi.");
+            console.error("Gagal membuat proyek:", error);
+            alert("Gagal kirim brief. Pastikan semua field terisi.");
         } finally {
-        setLoading(false);
+            setLoading(false);
         }
     };
 
-return (
-        <div className="max-w-4xl mx-auto mt-6">
+    return (
+        <div className="max-w-2xl mx-auto mt-6">
             <button 
-                onClick={() => navigate('/dashboard')} 
-                className="mb-4 flex items-center text-gray-500 hover:text-indigo-600 transition-colors font-medium ml-1"
+                onClick={() => navigate(-1)} // Mundur 1 halaman (ke Search)
+                className="mb-4 text-sm text-gray-500 hover:text-indigo-600 flex items-center gap-1 font-medium"
             >
-                ← Kembali ke Dashboard
+                ← Batal & Kembali
             </button>
 
-            <div className="bg-white shadow-lg rounded p-6 grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div className="bg-white p-8 rounded-lg shadow-md border border-gray-200">
+                <h2 className="text-2xl font-bold mb-6 text-gray-800 border-b pb-4">📝 Buat Proyek Baru</h2>
                 
-                <div className="md:col-span-2 border p-8 bg-gray-50 h-[80vh] overflow-y-auto font-serif text-sm leading-relaxed text-justify">
-                    <div className="text-center mb-6">
-                        <h1 className="font-bold text-xl underline">MEMORANDUM OF UNDERSTANDING</h1>
-                        <p className="text-xs text-gray-500 mt-1">Ref: MOU-{mouId || '???'}/{project.id}</p>
-                    </div>
-                    
-                    <p className="mb-4">
-                        Perjanjian kerjasama ini dibuat pada tanggal <strong>{new Date().toLocaleDateString('id-ID')}</strong> untuk pelaksanaan proyek:
-                    </p>
-
-                    <div className="bg-white border p-4 mb-4 rounded">
-                        <table className="w-full text-left">
-                            <tbody>
-                                <tr><td className="w-32 font-bold">Nama Acara</td><td>: {project.name}</td></tr>
-                                <tr><td className="font-bold">Lokasi</td><td>: {project.location}</td></tr>
-                                <tr><td className="font-bold">Tanggal</td><td>: {project.event_date}</td></tr>
-                                <tr><td className="font-bold">Nilai Kontrak</td><td>: Rp {project.budget_limit.toLocaleString()}</td></tr>
-                            </tbody>
-                        </table>
+                <form onSubmit={handleSubmit} className="space-y-5">
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Nama Acara</label>
+                        <input name="name" type="text" required className="w-full p-2 border border-gray-300 rounded focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition" onChange={handleChange} placeholder="Contoh: Gathering Kantor Tahunan" />
                     </div>
 
-                    <h3 className="font-bold mt-4">Pasal 1: Lingkup Pekerjaan</h3>
-                    <p>{project.description}</p>
-                    
-                    <h3 className="font-bold mt-4">Pasal 2: Pembayaran</h3>
-                    <p>Pembayaran dilakukan melalui Escrow EventGuard dengan termin: DP 50%, Termin 2 20%, Pelunasan 30%.</p>
-
-                    <div className="mt-10 pt-10 border-t text-center text-gray-400 italic">
-                        -- Akhir Dokumen --
-                    </div>
-                </div>
-
-                <div className="md:col-span-1 flex flex-col gap-4">
-                    
-                    <div className={`p-4 rounded border ${status === 'ACTIVE' ? 'bg-green-50 border-green-200' : 'bg-blue-50 border-blue-200'}`}>
-                        <h3 className="font-bold mb-1 text-gray-700">Status Proyek</h3>
-                        <span className="font-mono text-sm font-semibold">{status}</span>
-                    </div>
-
-                    {status === 'MOU_DRAFT' && isClient && (
-                        <div className="bg-white border p-4 rounded shadow-sm">
-                            <h3 className="font-bold mb-2 border-b pb-2">Aksi Diperlukan</h3>
-                            <p className="text-sm text-gray-600 mb-4">
-                                Mohon pelajari dokumen. Anda dapat menyetujui atau meminta revisi.
-                            </p>
-                            <div className="flex flex-col gap-2">
-                                <button onClick={handleRevise} className="w-full border border-red-300 text-red-600 py-2 rounded text-sm hover:bg-red-50 font-medium">
-                                    Minta Revisi
-                                </button>
-                                <button onClick={handleApprove} className="w-full bg-blue-600 text-white py-2 rounded text-sm hover:bg-blue-700 font-bold shadow">
-                                    ✅ Setujui (Approve)
-                                </button>
-                            </div>
+                    <div className="grid grid-cols-2 gap-4">
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">Lokasi</label>
+                            <input name="location" type="text" required className="w-full p-2 border border-gray-300 rounded focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition" onChange={handleChange} placeholder="Bandung" />
                         </div>
-                    )}
-
-                    {status === 'READY_TO_SIGN' && (
-                        <div className="bg-white border p-4 rounded shadow-sm">
-                            <h3 className="font-bold mb-2 border-b pb-2">Tanda Tangan</h3>
-                            <input 
-                                type="text" 
-                                placeholder="Ketik Nama Lengkap"
-                                className="w-full border p-2 rounded mb-2 text-sm bg-gray-50"
-                                value={signedName}
-                                onChange={(e) => setSignedName(e.target.value)}
-                            />
-                            <label className="flex items-start gap-2 text-sm mb-4 cursor-pointer select-none">
-                                <input type="checkbox" className="mt-1" checked={isAgreed} onChange={(e) => setIsAgreed(e.target.checked)} />
-                                <span>Saya menyetujui isi MoU ini secara sadar dan sah secara hukum digital.</span>
-                            </label>
-                            <button 
-                                onClick={handleSign}
-                                disabled={!isAgreed || !signedName}
-                                className="w-full bg-green-600 text-white py-3 rounded font-bold hover:bg-green-700 disabled:bg-gray-300 disabled:cursor-not-allowed shadow transition-colors"
-                            >
-                                ✍️ Tanda Tangan Sekarang
-                            </button>
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">Tanggal Acara</label>
+                            <input name="event_date" type="date" required className="w-full p-2 border border-gray-300 rounded focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition" onChange={handleChange} />
                         </div>
-                    )}
+                    </div>
 
-                    {status === 'ACTIVE' && (
-                        <div className="bg-green-50 p-6 rounded border border-green-200 text-center shadow-sm">
-                            <div className="text-4xl mb-2">🤝</div>
-                            <h3 className="font-bold text-green-800">Sah & Aktif</h3>
-                            <p className="text-sm text-green-700 mt-1">Proyek ini telah berjalan.</p>
-                        </div>
-                    )}
-                </div>
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Budget Limit (Rp)</label>
+                        <input name="budget_limit" type="number" required className="w-full p-2 border border-gray-300 rounded focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition" onChange={handleChange} placeholder="15000000" />
+                    </div>
+
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Deskripsi Kebutuhan</label>
+                        <textarea name="description" rows="4" required className="w-full p-2 border border-gray-300 rounded focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition" onChange={handleChange} placeholder="Jelaskan detail acara Anda..."></textarea>
+                    </div>
+
+                    <div className="pt-4">
+                        <button type="submit" disabled={loading} className="w-full px-4 py-3 bg-indigo-600 text-white rounded-lg font-bold hover:bg-indigo-700 disabled:bg-indigo-300 transition-colors shadow-md">
+                            {loading ? 'Memproses...' : 'Kirim Brief Proyek'}
+                        </button>
+                    </div>
+                </form>
             </div>
         </div>
     );
