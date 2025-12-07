@@ -1,8 +1,12 @@
 import { createContext, useState, useContext, useEffect } from 'react';
-import client from '../api/client';
+import axios from 'axios'; // <-- Import axios langsung (bukan client)
+import client from '../api/client'; // Tetap import client untuk fungsi lain selain login
 import { ENDPOINTS } from '../api/endpoints';
 
 const AuthContext = createContext(null);
+
+// Definisikan URL Backend manual disini agar 100% aman untuk Login
+const API_BASE_URL = 'https://eventguard-production.up.railway.app';
 
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
@@ -17,10 +21,9 @@ export const AuthProvider = ({ children }) => {
       if (token && savedUser) {
         try {
             setUser(JSON.parse(savedUser));
-            // Set header default agar request selanjutnya valid
+            // Set header default untuk client.js agar fitur lain jalan
             client.defaults.headers.common['Authorization'] = `Bearer ${token}`;
         } catch (e) {
-            console.error("Gagal parse user data", e);
             localStorage.clear();
         }
       } 
@@ -29,25 +32,28 @@ export const AuthProvider = ({ children }) => {
     initAuth();
   }, []);
 
-  // 2. Fungsi Login
+  // 2. Fungsi Login (BYPASS CLIENT.JS)
   const login = async (username, password) => {
-    // 1. Format Data Secara Manual menjadi String
-    // Ini memastikan data TERKIRIM sebagai string form, bukan JSON Object
-    const bodyData = `username=${encodeURIComponent(username)}&password=${encodeURIComponent(password)}`;
+    // Gunakan URLSearchParams standar
+    const params = new URLSearchParams();
+    params.append('username', username);
+    params.append('password', password);
 
-    console.log("Sending Login Payload:", bodyData); // Debugging di Console
+    console.log("Mencoba Login Direct Axios...");
 
-    // 2. Kirim Request dengan Header Eksplisit
-    const res = await client.post(ENDPOINTS.AUTH.LOGIN, bodyData, {
+    // --- REQUEST MURNI TANPA INTERCEPTOR ---
+    // Kita gabungkan Base URL + Endpoint Login secara manual
+    // Pastikan ENDPOINTS.AUTH.LOGIN di file endpoints.js isinya '/auth/token' (atau sesuai route backend)
+    const loginUrl = `${API_BASE_URL}${ENDPOINTS.AUTH.LOGIN}`; 
+
+    const res = await axios.post(loginUrl, params, {
         headers: { 
-            'Content-Type': 'application/x-www-form-urlencoded', // Wajib untuk FastAPI OAuth2
-            'Authorization': '' // Kosongkan agar tidak ada konflik dengan token lama
+            'Content-Type': 'application/x-www-form-urlencoded' 
         }
     });
 
     console.log("LOGIN SUCCESS:", res.data); 
 
-    // 3. Proses Respon (Sama seperti sebelumnya)
     const { access_token, role, username: resUsername, user_id } = res.data;
 
     if (access_token) {
@@ -62,7 +68,7 @@ export const AuthProvider = ({ children }) => {
         setUser(userData);
         localStorage.setItem('user_data', JSON.stringify(userData));
         
-        // Set default header untuk request selanjutnya
+        // PENTING: Beritahu 'client.js' bahwa kita sudah punya token untuk request selanjutnya
         client.defaults.headers.common['Authorization'] = `Bearer ${access_token}`;
         
         return true;
