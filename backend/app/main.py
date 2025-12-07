@@ -42,27 +42,7 @@ origins = [
 ]
 
 app = FastAPI(lifespan=lifespan)
-<<<<<<< HEAD
-
-# CORS untuk production
-origins = [
-    "http://localhost:3000",
-    "http://localhost:5173",
-    "https://*.railway.app",  # Railway frontend
-    "https://eventguard-beta.vercel.app"
-]
-
-app.add_middleware(
-    CORSMiddleware, 
-    allow_origins=origins,  
-    allow_credentials=True, 
-    allow_methods=["*"], 
-    allow_headers=["*"]
-)
-
-=======
-app.add_middleware(CORSMiddleware, allow_origins=origins, allow_credentials=True, allow_methods=["*"], allow_headers=["*"])
->>>>>>> frontend
+app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_credentials=True, allow_methods=["*"], allow_headers=["*"])
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
 app.include_router(auth_route.router)
