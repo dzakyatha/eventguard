@@ -16,6 +16,7 @@ const SignMoU = () => {
     // State Form Tanda Tangan
     const [signedName, setSignedName] = useState('');
     const [isAgreed, setIsAgreed] = useState(false);
+    const [isDownloading, setIsDownloading] = useState(false);
 
     useEffect(() => {
         const fetchData = async () => {
@@ -69,6 +70,24 @@ const SignMoU = () => {
             alert("Berhasil ditandatangani!");
             navigate('/dashboard');
         } catch (error) { alert("Gagal tanda tangan."); }
+    };
+
+    // --- FITUR DOWNLOAD PDF ---
+    const handleDownloadPDF = () => {
+        setIsDownloading(true);
+        const element = document.getElementById('mou-document'); // Ambil elemen dokumen
+        const opt = {
+            margin:       [10, 10, 10, 10], // Margin atas, kiri, bawah, kanan (mm)
+            filename:     `MOU-EventGuard-${project.id}.pdf`,
+            image:        { type: 'jpeg', quality: 0.98 },
+            html2canvas:  { scale: 2 }, // Scale 2 agar teks tajam
+            jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' }
+        };
+
+        // Generate PDF
+        html2pdf().set(opt).from(element).save().then(() => {
+            setIsDownloading(false);
+        });
     };
 
     // --- HELPER FORMATTING (Untuk mengisi kolom kosong) ---
@@ -312,9 +331,15 @@ const SignMoU = () => {
                             <div className="text-5xl mb-4">🤝</div>
                             <h3 className="font-bold text-green-800 text-xl">Sah & Aktif</h3>
                             <p className="text-sm text-green-700 mt-2">Dokumen telah ditandatangani oleh kedua belah pihak secara digital.</p>
-                            <div className="mt-4 pt-4 border-t border-green-200 text-xs text-green-600">
-                                Proyek siap dilaksanakan.
-                            </div>
+                            
+                            {/* TOMBOL DOWNLOAD BARU */}
+                            <button 
+                                onClick={handleDownloadPDF} 
+                                disabled={isDownloading}
+                                className="mt-6 w-full bg-gray-800 text-white py-3 rounded-lg font-bold hover:bg-gray-900 shadow-lg flex justify-center items-center gap-2 transition-all active:scale-95"
+                            >
+                                {isDownloading ? 'Sedang Memproses...' : '📥 Download PDF'}
+                            </button>
                         </div>
                     )}
                 </div>

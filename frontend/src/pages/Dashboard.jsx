@@ -3,7 +3,7 @@ import { useAuth } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import client from '../api/client';
 import { ENDPOINTS } from '../api/endpoints';
-import ChatBubble from '../components/ChatBubble'; // Import komponen Chat
+import ChatBubble from '../components/ChatBubble'; // Pastikan komponen ini ada
 
 const Dashboard = () => {
   const { user } = useAuth();
@@ -14,10 +14,10 @@ const Dashboard = () => {
   const [loading, setLoading] = useState(true);
 
   // State untuk Chat & Tab
-  const [activeTab, setActiveTab] = useState('detail'); // 'detail' or 'chat'
+  const [activeTab, setActiveTab] = useState('detail'); // 'detail' atau 'chat'
   const [messages, setMessages] = useState([]);
   const [newMessage, setNewMessage] = useState("");
-  const chatEndRef = useRef(null); // Auto-scroll ke bawah
+  const chatEndRef = useRef(null); // Referensi untuk auto-scroll ke bawah
 
   // --- 1. FETCH PROJECTS ---
   const fetchProjects = async () => {
@@ -35,29 +35,29 @@ const Dashboard = () => {
     fetchProjects();
   }, []);
 
-  // --- 2. FETCH MESSAGES (Saat Tab Chat Aktif) ---
+  // --- 2. FETCH MESSAGES (Langkah yang Anda tanyakan) ---
+  // Logika: Dijalankan setiap kali user memilih proyek atau pindah ke tab 'chat'
   useEffect(() => {
     if (selectedProject && activeTab === 'chat') {
       const fetchMessages = async () => {
         try {
           const res = await client.get(ENDPOINTS.PROJECTS.MESSAGES(selectedProject.id));
           setMessages(res.data);
-          scrollToBottom();
+          // Scroll ke pesan paling bawah (terbaru)
+          chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
         } catch (error) {
           console.error("Gagal ambil pesan", error);
         }
       };
+      
+      // Panggil sekali saat dibuka
       fetchMessages();
       
-      // Auto-refresh chat setiap 3 detik (Simple Polling)
+      // Auto-refresh chat setiap 3 detik (Polling) agar pesan masuk otomatis
       const interval = setInterval(fetchMessages, 3000);
       return () => clearInterval(interval);
     }
   }, [selectedProject, activeTab]);
-
-  const scrollToBottom = () => {
-    chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  };
 
   // --- 3. KIRIM PESAN ---
   const handleSendMessage = async (e) => {
@@ -65,27 +65,30 @@ const Dashboard = () => {
     if (!newMessage.trim()) return;
 
     try {
-      // Endpoint 6 Backend: POST /projects/{id}/messages
       await client.post(ENDPOINTS.PROJECTS.MESSAGES(selectedProject.id), {
         text: newMessage,
-        sender: user.username 
+        // Sender diambil otomatis oleh backend dari token, tidak perlu dikirim manual
       });
       setNewMessage("");
       
-      // Refresh manual agar langsung muncul
+      // Refresh manual agar pesan sendiri langsung muncul
       const res = await client.get(ENDPOINTS.PROJECTS.MESSAGES(selectedProject.id));
       setMessages(res.data);
-      scrollToBottom();
+      chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
     } catch (error) {
       console.error("Gagal kirim pesan:", error);
       alert("Gagal mengirim pesan.");
     }
   };
 
-  // --- FUNGSI TOMBOL AKSI (Sama seperti sebelumnya) ---
+  // --- FUNGSI TOMBOL AKSI ---
   const handleSendProposal = async () => {
     if (!selectedProject) return;
-    const proposalData = { price: selectedProject.budget_limit || 10000000, scope: "Full Service", timeline: "1 Hari" };
+    const proposalData = { 
+        price: selectedProject.budget_limit || 10000000, 
+        scope: "Full Service", 
+        timeline: "1 Hari" 
+    };
     try {
       if(confirm(`Ambil proyek "${selectedProject.name}"?`)) {
         await client.post(ENDPOINTS.PROJECTS.SEND_PROPOSAL(selectedProject.id), proposalData);
@@ -105,13 +108,20 @@ const Dashboard = () => {
   };
 
   const getStatusBadge = (status) => {
-    const map = { 'BRIEF': 'bg-gray-200', 'NEGOTIATING': 'bg-orange-100 text-orange-800', 'MOU_DRAFT': 'bg-blue-100 text-blue-800', 'READY_TO_SIGN': 'bg-purple-100 text-purple-800', 'ACTIVE': 'bg-green-100 text-green-800' };
+    const map = { 
+        'BRIEF': 'bg-gray-200', 
+        'NEGOTIATING': 'bg-orange-100 text-orange-800', 
+        'MOU_DRAFT': 'bg-blue-100 text-blue-800', 
+        'MOU_REVISION': 'bg-red-100 text-red-800',
+        'READY_TO_SIGN': 'bg-purple-100 text-purple-800', 
+        'ACTIVE': 'bg-green-100 text-green-800' 
+    };
     return <span className={`px-2 py-1 rounded text-xs font-bold ${map[status]}`}>{status}</span>;
   };
 
   return (
     <div className="flex h-[85vh] gap-6">
-      {/* Sidebar */}
+      {/* Sidebar List Proyek */}
       <div className="w-1/3 bg-white border border-gray-200 rounded-lg overflow-y-auto">
         <div className="p-4 border-b bg-gray-50"><h2 className="font-bold text-gray-700">Proyek Saya</h2></div>
         <ul>
@@ -125,22 +135,33 @@ const Dashboard = () => {
         </ul>
       </div>
 
-      {/* Main Content */}
+      {/* Main Content (Kanan) */}
       <div className="w-2/3 bg-white border border-gray-200 rounded-lg flex flex-col overflow-hidden">
         {selectedProject ? (
           <>
-            {/* Header */}
+            {/* Header Detail */}
             <div className="p-5 border-b bg-gray-50 flex justify-between items-center">
               <div><h2 className="font-bold text-xl">{selectedProject.name}</h2><p className="text-sm text-gray-500">Status: {selectedProject.status}</p></div>
+              
+              {/* TOMBOL-TOMBOL AKSI */}
               <div className="flex gap-2">
                 {user.role === 'vendor' && selectedProject.status === 'BRIEF' && <button onClick={handleSendProposal} className="bg-orange-600 text-white px-3 py-1 rounded text-sm font-bold">🚀 Ambil Proyek</button>}
                 {user.role === 'vendor' && selectedProject.status === 'NEGOTIATING' && <button onClick={handleGenerateMoU} className="bg-indigo-600 text-white px-3 py-1 rounded text-sm font-bold">📄 Buat MoU</button>}
+                {user.role === 'vendor' && selectedProject.status === 'MOU_REVISION' && <button onClick={handleGenerateMoU} className="bg-red-600 text-white px-3 py-1 rounded text-sm font-bold">🔄 Perbaiki MoU</button>}
+                
                 {user.role === 'client' && selectedProject.status === 'MOU_DRAFT' && <button onClick={() => navigate(`/sign-mou/${selectedProject.id}`)} className="bg-blue-600 text-white px-3 py-1 rounded text-sm font-bold">🔍 Review MoU</button>}
                 {selectedProject.status === 'READY_TO_SIGN' && <button onClick={() => navigate(`/sign-mou/${selectedProject.id}`)} className="bg-green-600 text-white px-3 py-1 rounded text-sm font-bold">✍️ Tanda Tangan</button>}
+                
+                {/* Tombol PDF Lihat Kontrak */}
+                {selectedProject.status === 'ACTIVE' && (
+                    <button onClick={() => navigate(`/sign-mou/${selectedProject.id}`)} className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded shadow font-bold text-sm flex items-center gap-1">
+                        📄 Lihat Kontrak
+                    </button>
+                )}
               </div>
             </div>
 
-            {/* TAB SWITCHER */}
+            {/* TAB SWITCHER (Pindah antara Detail dan Chat) */}
             <div className="flex border-b">
                 <button 
                     onClick={() => setActiveTab('detail')}
@@ -156,7 +177,7 @@ const Dashboard = () => {
                 </button>
             </div>
             
-            {/* CONTENT AREA */}
+            {/* AREA KONTEN (Isi berubah sesuai Tab) */}
             <div className="flex-1 overflow-y-auto bg-gray-50">
                 {activeTab === 'detail' ? (
                     <div className="p-6">
@@ -183,6 +204,7 @@ const Dashboard = () => {
                             {messages.map((msg) => (
                                 <ChatBubble key={msg.id} message={msg} isMe={msg.sender_username === user.username} />
                             ))}
+                            {/* Elemen kosong tak terlihat untuk target auto-scroll */}
                             <div ref={chatEndRef} />
                         </div>
                         <form onSubmit={handleSendMessage} className="p-3 bg-white border-t flex gap-2">

@@ -1,13 +1,17 @@
 // src/pages/VendorSearch.jsx
 import { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import client from '../api/client';
 import { ENDPOINTS } from '../api/endpoints';
 import VendorCard from '../components/VendorCard';
+import VendorDetailModal from '../components/VendorDetailModal'; // Import Modal
 
 const VendorSearch = () => {
+    const navigate = useNavigate();
     const [vendors, setVendors] = useState([]);
     const [loading, setLoading] = useState(true);
     const [filter, setFilter] = useState('');
+    const [selectedVendor, setSelectedVendor] = useState(null);
 
     useEffect(() => {
         const fetchVendors = async () => {
@@ -31,15 +35,25 @@ const VendorSearch = () => {
     }, []);
 
     const filteredVendors = vendors.filter(v => {
-
         const nameToCheck = (v.vendor_name || v.username || "").toLowerCase();
-        
         const categoryToCheck = (v.category || "").toLowerCase();
-        
         const filterText = filter.toLowerCase();
-
         return nameToCheck.includes(filterText) || categoryToCheck.includes(filterText);
     });
+
+    const handleOpenDetail = (vendor) => {
+        setSelectedVendor(vendor);
+    };
+
+    // 2. Fungsi tutup modal
+    const handleCloseDetail = () => {
+        setSelectedVendor(null);
+    };
+
+    // 3. Fungsi lanjut ke penawaran
+    const handleProceedToOffer = (vendorId) => {
+        navigate(`/create-brief/${vendorId}`);
+    };
 
     return (
         <div>
@@ -59,17 +73,32 @@ const VendorSearch = () => {
         </div>
 
         {loading ? (
-            <p>Memuat data vendor...</p>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {[1,2,3].map(i => <div key={i} className="h-64 bg-gray-100 rounded-xl animate-pulse"></div>)}
+            </div>
         ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {filteredVendors.map(vendor => (
-                <VendorCard key={vendor.id} vendor={vendor} />
+                <VendorCard 
+                    key={vendor.id} 
+                    vendor={vendor} 
+                    onViewDetail={handleOpenDetail} 
+                />
             ))}
             </div>
         )}
         
         {filteredVendors.length === 0 && !loading && (
             <p className="text-center text-gray-500 mt-10">Tidak ada vendor yang ditemukan.</p>
+        )}
+
+        {/* --- RENDER MODAL JIKA ADA VENDOR YANG DIPILIH --- */}
+        {selectedVendor && (
+            <VendorDetailModal 
+                vendor={selectedVendor} 
+                onClose={handleCloseDetail} 
+                onOffer={handleProceedToOffer}
+            />
         )}
         </div>
     );
