@@ -8,17 +8,11 @@ const client = axios.create({
 });
 
 client.interceptors.request.use((config) => {
-    // Ambil token yang tadi disimpan di AuthContext
     const token = localStorage.getItem('token');
-    
     if (token) {
-        // Tempelkan ke Header 'Authorization'
         config.headers.Authorization = `Bearer ${token}`;
     }
-    
     return config;
-}, (error) => {
-    return Promise.reject(error);
 });
 
 export default client;
