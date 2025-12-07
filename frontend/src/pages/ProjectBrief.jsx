@@ -18,6 +18,22 @@ const ProjectBrief = () => {
     const { vendorId } = useParams(); 
     const navigate = useNavigate();
     const [loading, setLoading] = useState(false);
+    const [targetVendor, setTargetVendor] = useState(null);
+
+    useEffect(() => {
+        const fetchVendor = async () => {
+            if (!vendorId) return;
+            try {
+                const res = await client.get(ENDPOINTS.VENDORS.DETAIL(vendorId));
+                setTargetVendor(res.data);
+            } catch (error) {
+                console.error("Gagal ambil data vendor:", error);
+                alert("Vendor tidak ditemukan.");
+                navigate('/search');
+            }
+        };
+        fetchVendor();
+    }, [vendorId, navigate]);
     
     // State Data Form
     const [formData, setFormData] = useState({
@@ -98,7 +114,8 @@ Link: ${formData.doc_link || '(Tidak ada lampiran)'}
                 location: formData.location,
                 event_date: formData.event_date,
                 budget_limit: parseInt(formData.budget_limit),
-                description: detailedDescription 
+                description: detailedDescription,
+                vendor_username: targetVendor.username
             };
 
             await client.post(ENDPOINTS.PROJECTS.CREATE, payload);
