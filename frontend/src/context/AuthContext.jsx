@@ -31,25 +31,23 @@ export const AuthProvider = ({ children }) => {
 
   // 2. Fungsi Login
   const login = async (username, password) => {
-    // 1. Ubah data menjadi format FORM DATA (bukan JSON)
-    const params = new URLSearchParams();
-    params.append('username', username);
-    params.append('password', password);
+    // 1. Format Data Secara Manual menjadi String
+    // Ini memastikan data TERKIRIM sebagai string form, bukan JSON Object
+    const bodyData = `username=${encodeURIComponent(username)}&password=${encodeURIComponent(password)}`;
 
-    // 2. Kirim Request
-    // Kita tidak perlu set header Content-Type manual, 
-    // karena kita mengirim objek URLSearchParams, axios akan otomatis set header yang benar.
-    
-    // Kita override Authorization jadi null agar token lama tidak ikut terkirim
-    const res = await client.post(ENDPOINTS.AUTH.LOGIN, params, {
+    console.log("Sending Login Payload:", bodyData); // Debugging di Console
+
+    // 2. Kirim Request dengan Header Eksplisit
+    const res = await client.post(ENDPOINTS.AUTH.LOGIN, bodyData, {
         headers: { 
-            'Authorization': '' 
+            'Content-Type': 'application/x-www-form-urlencoded', // Wajib untuk FastAPI OAuth2
+            'Authorization': '' // Kosongkan agar tidak ada konflik dengan token lama
         }
     });
 
     console.log("LOGIN SUCCESS:", res.data); 
 
-    // 3. Ambil data dari respon
+    // 3. Proses Respon (Sama seperti sebelumnya)
     const { access_token, role, username: resUsername, user_id } = res.data;
 
     if (access_token) {
@@ -63,6 +61,10 @@ export const AuthProvider = ({ children }) => {
         
         setUser(userData);
         localStorage.setItem('user_data', JSON.stringify(userData));
+        
+        // Set default header untuk request selanjutnya
+        client.defaults.headers.common['Authorization'] = `Bearer ${access_token}`;
+        
         return true;
     } else {
         throw new Error("Token tidak ditemukan.");
