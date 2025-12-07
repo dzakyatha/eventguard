@@ -16,24 +16,28 @@ const Login = () => {
         setError('');
         setLoading(true);
         try {
-            console.log("Mencoba login dengan:", username); // Debug 1
             await login(username, password);
-            console.log("Login sukses, redirecting..."); // Debug 2
             navigate('/dashboard');
         } catch (err) {
-            // --- INI BAGIAN PENTING YANG SEBELUMNYA HILANG ---
-            console.error("LOGIN ERROR FULL:", err);
-            if (err.response) {
-                console.error("Response Data:", err.response.data);
-                console.error("Status Code:", err.response.status);
-                // Tampilkan pesan error spesifik dari backend jika ada
-                setError(err.response.data.detail || 'Login gagal. Cek username/password.');
-            } else if (err.request) {
-                console.error("No Response (Network Error):", err.request);
-                setError('Gagal terhubung ke server. Cek koneksi internet.');
+            console.error("LOGIN ERROR:", err);
+            
+            // --- LOGIKA MENANGKAP PESAN ERROR DENGAN BENAR ---
+            if (err.response && err.response.data) {
+                const detail = err.response.data.detail;
+                
+                if (Array.isArray(detail)) {
+                    // Jika error 422 (Validation Error dari FastAPI), detailnya berupa Array
+                    // Contoh: [{loc: body, msg: "Field required", ...}]
+                    // Kita ambil pesan pertama saja
+                    setError(`Gagal: ${detail[0].msg}`);
+                } else if (typeof detail === 'string') {
+                    // Jika error string biasa
+                    setError(detail);
+                } else {
+                    setError('Login gagal. Periksa username/password.');
+                }
             } else {
-                console.error("Error Setup:", err.message);
-                setError(`Terjadi kesalahan: ${err.message}`);
+                setError('Tidak dapat terhubung ke server (Network Error).');
             }
         } finally {
             setLoading(false);
