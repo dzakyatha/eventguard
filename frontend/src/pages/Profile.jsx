@@ -77,12 +77,10 @@ const Profile = () => {
                         className="w-full h-full object-cover" 
                         onError={(e) => { e.target.style.display = 'none'; }} 
                     />
-                    {/* Fallback Icon jika gambar gagal */}
-                    <div className="absolute"><Icons.User /></div>
                 </div>
             </div>
             
-            <div className="flex-1 pb-2 w-full pt-4 md:pt-0">
+            <div className="flex-1 pb-2 w-full pt-4 md:pt-0 md:mt-20">
                 <div className="flex flex-col md:flex-row justify-between items-start md:items-end">
                     <div>
                         <h1 className="text-4xl font-extrabold text-[#251E3B] flex items-center mb-1">

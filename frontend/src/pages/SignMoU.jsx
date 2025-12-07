@@ -5,6 +5,17 @@ import client from '../api/client';
 import { ENDPOINTS } from '../api/endpoints';
 import html2pdf from 'html2pdf.js';
 
+// --- IKON SVG ---
+const Icons = {
+  Back: () => <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" /></svg>,
+  CheckCircle: () => <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>,
+  Pencil: () => <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>,
+  Download: () => <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>,
+  DocumentCheck: () => <svg className="w-12 h-12 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>,
+  Alert: () => <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
+};
+
+// Komponen Input Field
 const EditableField = ({ value, onChange, placeholder, disabled }) => (
     <input 
         type="text" 
@@ -12,7 +23,7 @@ const EditableField = ({ value, onChange, placeholder, disabled }) => (
         onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder}
         disabled={disabled}
-        className="border-b border-black outline-none bg-transparent w-64 px-1 text-blue-900 font-medium placeholder-gray-300 focus:border-blue-500 disabled:text-black disabled:border-none disabled:bg-gray-50"
+        className="border-b border-[#251E3B] outline-none bg-transparent w-full md:w-64 px-1 text-[#251E3B] font-serif font-bold placeholder-gray-300 focus:border-[#FF9206] disabled:text-black disabled:border-none disabled:bg-transparent transition-colors"
     />
 );
 
@@ -35,7 +46,6 @@ const SignMoU = () => {
         return saved ? JSON.parse(saved) : { nama: '', alamat: '', id_no: '' };
     });
 
-    // State Form Tanda Tangan
     const [signedName, setSignedName] = useState('');
     const [isAgreed, setIsAgreed] = useState(false);
     const [isDownloading, setIsDownloading] = useState(false);
@@ -48,21 +58,14 @@ const SignMoU = () => {
         if(vendorInfo.nama) localStorage.setItem(`mou_vendor_${projectId}`, JSON.stringify(vendorInfo));
     }, [vendorInfo, projectId]);
 
-    // --- EFFECT: Load Data Project ---
     useEffect(() => {
         const fetchData = async () => {
             try {
                 const resProject = await client.get(ENDPOINTS.PROJECTS.DETAIL(projectId));
                 setProject(resProject.data);
                 
-                // Pre-fill nama user jika data masih kosong
-                if (user.role === 'client' && !clientInfo.nama) {
-                    setClientInfo(prev => ({ ...prev, nama: user.username }));
-                }
-                // Jika user adalah vendor & data vendor masih kosong, coba isi (opsional)
-                if (user.role === 'vendor' && !vendorInfo.nama) {
-                    setVendorInfo(prev => ({ ...prev, nama: user.username }));
-                }
+                if (user.role === 'client' && !clientInfo.nama) setClientInfo(prev => ({ ...prev, nama: user.username }));
+                if (user.role === 'vendor' && !vendorInfo.nama) setVendorInfo(prev => ({ ...prev, nama: user.username }));
 
                 try {
                     const resMoU = await client.get(ENDPOINTS.MOU.GET_BY_PROJECT(projectId));
@@ -73,7 +76,7 @@ const SignMoU = () => {
             } finally { setLoading(false); }
         };
         fetchData();
-    }, [projectId, user]); // Hapus dependency clientInfo/vendorInfo agar tidak loop
+    }, [projectId, user]);
 
     const handleApprove = async () => {
         if (!mouId) return alert("Error: ID MoU tidak ditemukan.");
@@ -105,107 +108,51 @@ const SignMoU = () => {
         } catch (error) { alert("Gagal tanda tangan."); }
     };
 
-// --- FIX FITUR DOWNLOAD PDF (V8 - Fullscreen Overlay Strategy) ---
+    // --- FIX FITUR DOWNLOAD PDF (V8 - Overlay Fullscreen) ---
     const handleDownloadPDF = async () => {
         const originalElement = document.getElementById('mou-document');
-        
-        if (!originalElement) {
-            alert("Gagal menemukan dokumen.");
-            return;
-        }
+        if (!originalElement) return alert("Gagal menemukan dokumen.");
 
         setIsDownloading(true);
 
-        // 1. CLONE elemen
         const clone = originalElement.cloneNode(true);
+        const container = document.createElement('div');
+        Object.assign(container.style, {
+            position: 'fixed', top: '0', left: '0', width: '100vw', height: '100vh',
+            zIndex: '99999', backgroundColor: 'white', overflowY: 'scroll', padding: '20px', boxSizing: 'border-box'
+        });
 
-        // 2. INPUT -> TEXT (Agar rapi)
-        // Kita lakukan ini SEBELUM menempelkan ke DOM
+        clone.className = ''; // Reset class
+        Object.assign(clone.style, {
+            height: 'auto', maxHeight: 'none', overflow: 'visible', width: '210mm', margin: '0 auto',
+            backgroundColor: 'white', color: 'black', fontFamily: 'Times New Roman, serif', fontSize: '12pt', lineHeight: '1.5'
+        });
+
+        // Mapping Input to Text
         const originalInputs = originalElement.querySelectorAll('input');
         const clonedInputs = clone.querySelectorAll('input');
-
         originalInputs.forEach((input, index) => {
             const span = document.createElement('span');
             span.innerText = input.value ? input.value : '__________________________';
-            Object.assign(span.style, {
-                fontWeight: 'bold',
-                borderBottom: '1px solid black',
-                display: 'inline-block',
-                minWidth: '200px',
-                color: 'black'
-            });
+            Object.assign(span.style, { fontWeight: 'bold', borderBottom: '1px solid black', display: 'inline-block', minWidth: '200px', color: 'black' });
             if (clonedInputs[index]) clonedInputs[index].parentNode.replaceChild(span, clonedInputs[index]);
         });
 
-        // 3. CONTAINER KHUSUS (Overlay)
-        // Kita buat div yang menutupi layar sepenuhnya agar html2pdf tidak bingung posisi
-        const container = document.createElement('div');
-        Object.assign(container.style, {
-            position: 'fixed',      // Tetap di layar walau scroll
-            top: '0',
-            left: '0',
-            width: '100vw',         // Lebar layar penuh
-            height: '100vh',        // Tinggi layar penuh
-            zIndex: '99999',        // Paling depan
-            backgroundColor: 'white',
-            overflowY: 'scroll',    // Allow scroll di dalam overlay jika panjang
-            padding: '20px',
-            boxSizing: 'border-box'
-        });
-
-        // 4. STYLE CLONE (Reset Scroll & Height)
-        // Kita hapus class Tailwind yang membatasi tinggi
-        clone.classList.remove('h-[85vh]', 'overflow-y-auto', 'border-r', 'lg:col-span-2');
-        
-        // Kita paksa style agar melebar sesuai A4
-        Object.assign(clone.style, {
-            height: 'auto',
-            maxHeight: 'none',
-            overflow: 'visible',
-            width: '210mm',         // Lebar A4
-            margin: '0 auto',       // Tengah
-            backgroundColor: 'white',
-            color: 'black',
-            fontFamily: 'Times New Roman, serif', // Font formal
-            fontSize: '12pt',
-            lineHeight: '1.5'
-        });
-
-        // Masukkan clone ke container, container ke body
         container.appendChild(clone);
         document.body.appendChild(container);
-
-        // 5. TUNGGU RENDER (PENTING!)
         await new Promise(resolve => setTimeout(resolve, 800));
 
-        // 6. GENERATE PDF
         const opt = {
-            margin:       15, 
-            filename:     `MOU-EventGuard-${project.id}.pdf`,
-            image:        { type: 'jpeg', quality: 0.98 },
-            html2canvas:  { 
-                scale: 2, 
-                useCORS: true,
-                // windowWidth memaksa canvas selebar container, mencegah potong kanan
-                windowWidth: container.scrollWidth 
-            },
-            jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' }
+            margin: 15, filename: `MOU-EventGuard-${project.id}.pdf`, image: { type: 'jpeg', quality: 0.98 },
+            html2canvas: { scale: 2, useCORS: true, windowWidth: container.scrollWidth },
+            jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
         };
 
-        try {
-            // Kita print 'clone' yang ada di dalam container
-            await html2pdf().set(opt).from(clone).save();
-        } catch (error) {
-            console.error("Gagal download PDF:", error);
-            alert("Gagal download PDF");
-        } finally {
-            // Bersihkan
-            document.body.removeChild(container);
-            setIsDownloading(false);
-        }
+        try { await html2pdf().set(opt).from(clone).save(); } 
+        catch (error) { console.error("Error PDF", error); alert("Gagal download PDF"); } 
+        finally { document.body.removeChild(container); setIsDownloading(false); }
     };
 
-    // --- HELPER FORMATTING (Untuk mengisi kolom kosong) ---
     const formatRupiah = (num) => "Rp " + (num || 0).toLocaleString('id-ID');
     const formatDateIndo = (dateString) => {
         if(!dateString) return "....................";
@@ -214,27 +161,26 @@ const SignMoU = () => {
     };
     const getTodayDate = () => formatDateIndo(new Date());
 
-    if (loading) return <div className="p-10 text-center">Memuat dokumen...</div>;
+    if (loading) return <div className="min-h-screen flex items-center justify-center font-bold text-[#251E3B]">Memuat dokumen...</div>;
     if (!project) return <div className="p-10 text-center">Proyek tidak ditemukan.</div>;
 
     const isClient = user.role === 'client';
     const isVendor = user.role === 'vendor';
     const status = project.status;
-
     const canEditClient = isClient && status === 'MOU_DRAFT';
-    const canEditVendor = isVendor && (status === 'NEGOTIATING' || status === 'MOU_DRAFT' || status === 'MOU_REVISION'); // Vendor isi saat belum generate (Logic simulasi)
+    const canEditVendor = isVendor && (status === 'NEGOTIATING' || status === 'MOU_DRAFT' || status === 'MOU_REVISION');
 
     return (
-        <div className="max-w-5xl mx-auto mt-6 mb-10">
-            <button 
-                onClick={() => navigate('/dashboard')} 
-                className="mb-4 flex items-center text-gray-500 hover:text-indigo-600 transition-colors font-medium ml-1"
-            >
-                ← Kembali ke Dashboard
-            </button>
-
-            <div className="bg-white shadow-xl rounded-xl overflow-hidden grid grid-cols-1 lg:grid-cols-3">
+        <div className="min-h-screen bg-[#F8FAFC] py-10 font-sans text-[#251E3B]">
+            <div className="max-w-6xl mx-auto px-4">
                 
+                {/* Header Navigasi */}
+                <button onClick={() => navigate('/dashboard')} className="mb-6 text-sm text-[#251E3B]/60 hover:text-[#FF9206] flex items-center gap-2 font-bold transition-colors">
+                    <Icons.Back /> Kembali ke Dashboard
+                </button>
+
+                <div className="flex flex-col lg:flex-row gap-8">
+                    
                 {/* === KOLOM KIRI: DOKUMEN MOU === */}
                 <div id="mou-document" className="lg:col-span-2 border-r p-10 bg-white h-[85vh] overflow-y-auto font-serif text-sm text-gray-800 leading-relaxed">
                     
@@ -407,78 +353,54 @@ const SignMoU = () => {
                     </div>
                 </div>
 
-                {/* === KOLOM KANAN: PANEL AKSI (TETAP SAMA SEPERTI SEBELUMNYA) === */}
-                <div className="lg:col-span-1 bg-gray-50 p-6 border-l border-gray-200 flex flex-col gap-6">
-                    
-                    {/* Status Badge */}
-                    <div className={`p-4 rounded-lg border-2 ${status === 'ACTIVE' ? 'bg-green-100 border-green-400' : 'bg-white border-indigo-100'}`}>
-                        <h3 className="font-bold mb-1 text-gray-700 uppercase text-xs tracking-wider">Status Dokumen</h3>
-                        <span className={`font-bold text-lg ${status === 'ACTIVE' ? 'text-green-700' : 'text-indigo-600'}`}>{status.replace('_', ' ')}</span>
+                    {/* === KOLOM KANAN: PANEL AKSI === */}
+                    <div className="w-full lg:w-80 flex flex-col gap-6 shrink-0">
+                        
+                        {/* Status Card */}
+                        <div className={`p-6 rounded-3xl border-2 flex flex-col items-center text-center ${status === 'ACTIVE' ? 'bg-green-50 border-green-200' : 'bg-white border-[#251E3B]/10'}`}>
+                            <p className="text-xs font-bold uppercase tracking-widest mb-1 opacity-50">Status Dokumen</p>
+                            <span className={`text-xl font-extrabold ${status === 'ACTIVE' ? 'text-green-600' : 'text-[#251E3B]'}`}>{status.replace('_', ' ')}</span>
+                        </div>
+
+                        {/* Actions: Client Review */}
+                        {status === 'MOU_DRAFT' && isClient && (
+                            <div className="bg-white p-6 rounded-3xl shadow-sm border border-[#251E3B]/5">
+                                <h3 className="font-bold text-[#251E3B] mb-2 flex items-center gap-2"><Icons.Pencil /> Verifikasi</h3>
+                                <p className="text-xs text-gray-500 mb-4 bg-yellow-50 p-3 rounded-xl border border-yellow-100 flex gap-2">
+                                    <Icons.Alert /> Lengkapi data di dokumen sebelum setuju.
+                                </p>
+                                <div className="flex flex-col gap-3">
+                                    <button onClick={handleRevise} className="w-full py-3 rounded-xl border border-red-200 text-red-500 font-bold text-sm hover:bg-red-50 transition-colors">Minta Revisi</button>
+                                    <button onClick={handleApprove} className="w-full py-3 rounded-xl bg-[#251E3B] text-white font-bold text-sm hover:bg-slate-900 shadow-lg shadow-slate-500/20 transition-colors">✅ Setujui</button>
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Actions: Signing */}
+                        {status === 'READY_TO_SIGN' && (
+                            <div className="bg-white p-6 rounded-3xl shadow-sm border border-[#251E3B]/5">
+                                <h3 className="font-bold text-[#251E3B] mb-4 flex items-center gap-2"><Icons.Pencil /> Tanda Tangan</h3>
+                                <input type="text" className="w-full border border-gray-200 bg-[#F8FAFC] p-3 rounded-xl text-sm mb-4 outline-none focus:ring-2 focus:ring-[#FF9206]" value={signedName} onChange={(e) => setSignedName(e.target.value)} placeholder="Ketik Nama Lengkap" />
+                                <label className="flex items-start gap-3 text-xs mb-6 cursor-pointer p-3 bg-[#F8FAFC] rounded-xl text-gray-500">
+                                    <input type="checkbox" className="mt-0.5" checked={isAgreed} onChange={(e) => setIsAgreed(e.target.checked)} />
+                                    <span>Saya menyetujui isi perjanjian ini secara hukum.</span>
+                                </label>
+                                <button onClick={handleSign} disabled={!isAgreed || !signedName} className="w-full py-3 rounded-xl bg-green-600 text-white font-bold text-sm hover:bg-green-700 shadow-lg shadow-green-500/20 disabled:bg-gray-300 transition-colors">✍️ Tanda Tangan</button>
+                            </div>
+                        )}
+
+                        {/* Actions: Download */}
+                        {status === 'ACTIVE' && (
+                            <div className="bg-white p-8 rounded-3xl shadow-sm border border-green-100 text-center">
+                                <div className="flex justify-center mb-4"><Icons.DocumentCheck /></div>
+                                <h3 className="font-bold text-[#251E3B] text-lg">Dokumen Sah</h3>
+                                <p className="text-xs text-gray-400 mt-1 mb-6">Tersimpan aman di blockchain.</p>
+                                <button onClick={handleDownloadPDF} disabled={isDownloading} className="w-full py-3 rounded-xl bg-[#251E3B] text-white font-bold text-sm hover:bg-slate-900 shadow-lg flex justify-center items-center gap-2 transition-transform active:scale-95">
+                                    {isDownloading ? 'Memproses...' : <><Icons.Download /> Download PDF</>}
+                                </button>
+                            </div>
+                        )}
                     </div>
-
-                    {/* --- MENU CLIENT REVIEW (MOU_DRAFT) --- */}
-                    {status === 'MOU_DRAFT' && isClient && (
-                        <div className="bg-white border p-6 rounded-lg shadow-sm">
-                            <h3 className="font-bold mb-4 text-gray-800 border-b pb-2">Verifikasi Dokumen</h3>
-                            <p className="text-sm text-gray-600 mb-6">
-                                Mohon baca draf di samping dengan teliti. Pastikan Budget, Tanggal, dan Lingkup Kerja sudah sesuai.
-                            </p>
-                            <div className="flex flex-col gap-3">
-                                <button onClick={handleRevise} className="w-full border-2 border-red-200 text-red-600 py-2 rounded-lg text-sm hover:bg-red-50 font-bold transition-colors">
-                                    Minta Revisi
-                                </button>
-                                <button onClick={handleApprove} className="w-full bg-indigo-600 text-white py-3 rounded-lg text-sm hover:bg-indigo-700 font-bold shadow-md transition-colors">
-                                    ✅ Setujui Dokumen
-                                </button>
-                            </div>
-                        </div>
-                    )}
-
-                    {/* --- MENU TANDA TANGAN (READY_TO_SIGN) --- */}
-                    {status === 'READY_TO_SIGN' && (
-                        <div className="bg-white border p-6 rounded-lg shadow-sm">
-                            <h3 className="font-bold mb-4 text-gray-800 border-b pb-2">Tanda Tangan Digital</h3>
-                            <div className="mb-4">
-                                <label className="block text-xs font-bold text-gray-500 mb-1 uppercase">Nama Lengkap (Sesuai KTP)</label>
-                                <input 
-                                    type="text" 
-                                    className="w-full border border-gray-300 p-3 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 outline-none"
-                                    value={signedName}
-                                    onChange={(e) => setSignedName(e.target.value)}
-                                    placeholder="Contoh: Budi Santoso"
-                                />
-                            </div>
-                            <label className="flex items-start gap-3 text-sm mb-6 cursor-pointer p-3 bg-gray-50 rounded border border-gray-100 hover:bg-gray-100">
-                                <input type="checkbox" className="mt-1 w-4 h-4 text-indigo-600 rounded" checked={isAgreed} onChange={(e) => setIsAgreed(e.target.checked)} />
-                                <span className="text-gray-600 text-xs leading-relaxed">Saya menyatakan telah membaca, memahami, dan menyetujui seluruh isi perjanjian ini secara sadar dan tanpa paksaan.</span>
-                            </label>
-                            <button 
-                                onClick={handleSign}
-                                disabled={!isAgreed || !signedName}
-                                className="w-full bg-green-600 text-white py-3 rounded-lg font-bold hover:bg-green-700 disabled:bg-gray-300 disabled:cursor-not-allowed shadow-md transition-colors flex justify-center items-center gap-2"
-                            >
-                                ✍️ Tanda Tangan Sekarang
-                            </button>
-                        </div>
-                    )}
-
-                    {/* --- SUDAH SELESAI --- */}
-                    {status === 'ACTIVE' && (
-                        <div className="bg-green-50 p-8 rounded-lg border border-green-200 text-center shadow-inner">
-                            <div className="text-5xl mb-4">🤝</div>
-                            <h3 className="font-bold text-green-800 text-xl">Sah & Aktif</h3>
-                            <p className="text-sm text-green-700 mt-2">Dokumen telah ditandatangani oleh kedua belah pihak secara digital.</p>
-                            
-                            {/* TOMBOL DOWNLOAD BARU */}
-                            <button 
-                                onClick={handleDownloadPDF} 
-                                disabled={isDownloading}
-                                className="mt-6 w-full bg-gray-800 text-white py-3 rounded-lg font-bold hover:bg-gray-900 shadow-lg flex justify-center items-center gap-2 transition-all active:scale-95"
-                            >
-                                {isDownloading ? 'Sedang Memproses...' : '📥 Download PDF'}
-                            </button>
-                        </div>
-                    )}
                 </div>
             </div>
         </div>
