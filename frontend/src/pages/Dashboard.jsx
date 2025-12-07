@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import client from '../api/client';
 import { ENDPOINTS } from '../api/endpoints';
 import ChatBubble from '../components/ChatBubble'; 
+import html2pdf from 'html2pdf.js'; // Pastikan import ini ada
 
 const Dashboard = () => {
   const { user } = useAuth();
@@ -18,6 +19,9 @@ const Dashboard = () => {
   const [messages, setMessages] = useState([]);
   const [newMessage, setNewMessage] = useState("");
   const chatEndRef = useRef(null); 
+
+  const [showMouModal, setShowMouModal] = useState(false);
+  const [vendorMouData, setVendorMouData] = useState({ nama: '', alamat: '', id_no: '' });
 
   // --- 1. FETCH DATA ---
   const fetchProjects = async () => {
@@ -68,19 +72,100 @@ const Dashboard = () => {
     }
   };
 
-  const handleGenerateMoU = async () => {
-    try {
-      await client.post(ENDPOINTS.MOU.GENERATE(selectedProject.id));
-      fetchProjects(); setSelectedProject(null);
-    } catch (error) { alert("Gagal proses MoU."); }
+  const handleGenerateMoU = () => {
+    // Buka modal dulu, jangan langsung API
+    setVendorMouData({ nama: user.username, alamat: '', id_no: '' }); // Reset form
+    setShowMouModal(true);
   };
 
-  // --- 4. HELPERS VISUAL (PROGRESS BAR & STATUS) ---
+  const submitMouGeneration = async () => {
+    if (!vendorMouData.nama || !vendorMouData.alamat || !vendorMouData.id_no) {
+        return alert("Mohon lengkapi data usaha Anda.");
+    }
+
+    try {
+        // 1. Simpan data vendor ke LocalStorage (Kuncinya pakai ID Project)
+        localStorage.setItem(`mou_vendor_${selectedProject.id}`, JSON.stringify(vendorMouData));
+
+        // 2. Panggil API Backend
+        await client.post(ENDPOINTS.MOU.GENERATE(selectedProject.id));
+        
+        alert("MoU berhasil dibuat dengan data Anda!");
+        setShowMouModal(false); // Tutup modal
+        fetchProjects(); 
+        setSelectedProject(null);
+    } catch (error) { 
+        alert("Gagal buat MoU."); 
+        console.error(error);
+    }
+  };
+
+  // --- 4. FITUR BARU: DOWNLOAD PROJECT BRIEF PDF ---
+  const handleDownloadBrief = () => {
+    if (!selectedProject) return;
+
+    // 1. Buat Template HTML untuk PDF (Virtual Element)
+    const element = document.createElement('div');
+    element.innerHTML = `
+        <div style="padding: 30px; font-family: Arial, sans-serif; color: #333;">
+            <div style="text-align: center; margin-bottom: 30px; border-bottom: 2px solid #333; padding-bottom: 10px;">
+                <h1 style="margin: 0; color: #4F46E5;">PROJECT BRIEF DOCUMENT</h1>
+                <p style="margin: 5px 0 0; color: #666;">EventGuard Platform Generated</p>
+            </div>
+
+            <table style="width: 100%; margin-bottom: 20px; border-collapse: collapse;">
+                <tr>
+                    <td style="padding: 8px; font-weight: bold; width: 150px;">Project ID</td>
+                    <td style="padding: 8px;">: #${selectedProject.id}</td>
+                </tr>
+                <tr>
+                    <td style="padding: 8px; font-weight: bold;">Nama Event</td>
+                    <td style="padding: 8px;">: ${selectedProject.name}</td>
+                </tr>
+                <tr>
+                    <td style="padding: 8px; font-weight: bold;">Tanggal Acara</td>
+                    <td style="padding: 8px;">: ${selectedProject.event_date}</td>
+                </tr>
+                <tr>
+                    <td style="padding: 8px; font-weight: bold;">Lokasi</td>
+                    <td style="padding: 8px;">: ${selectedProject.location}</td>
+                </tr>
+                <tr>
+                    <td style="padding: 8px; font-weight: bold;">Budget Limit</td>
+                    <td style="padding: 8px;">: Rp ${selectedProject.budget_limit?.toLocaleString()}</td>
+                </tr>
+            </table>
+
+            <div style="background-color: #f9fafb; padding: 15px; border-radius: 8px; border: 1px solid #e5e7eb;">
+                <h3 style="margin-top: 0; border-bottom: 1px solid #ddd; padding-bottom: 5px;">Detail & Spesifikasi</h3>
+                <pre style="white-space: pre-wrap; font-family: Arial, sans-serif; line-height: 1.5; color: #4b5563;">${selectedProject.description}</pre>
+            </div>
+
+            <div style="margin-top: 40px; font-size: 10px; color: #999; text-align: center;">
+                Dokumen ini digenerate secara otomatis dari sistem EventGuard pada ${new Date().toLocaleString()}.
+            </div>
+        </div>
+    `;
+
+    // 2. Konfigurasi PDF
+    const opt = {
+        margin:       [10, 10, 10, 10],
+        filename:     `Brief-${selectedProject.name.replace(/\s+/g, '-')}.pdf`,
+        image:        { type: 'jpeg', quality: 0.98 },
+        html2canvas:  { scale: 2 },
+        jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' }
+    };
+
+    // 3. Proses Download
+    html2pdf().set(opt).from(element).save();
+  };
+
+  // --- 5. HELPERS VISUAL ---
   const getProgressStep = (status) => {
     switch(status) {
         case 'BRIEF': return 1;
         case 'NEGOTIATING': return 2;
-        case 'MOU_DRAFT': return 2; // Masih tahap agreement
+        case 'MOU_DRAFT': return 2; 
         case 'MOU_REVISION': return 2;
         case 'READY_TO_SIGN': return 3;
         case 'ACTIVE': return 4;
@@ -89,7 +174,6 @@ const Dashboard = () => {
     }
   };
 
-  // Format Rupiah
   const formatRupiah = (num) => "Rp " + (num || 0).toLocaleString('id-ID');
 
   return (
@@ -118,7 +202,7 @@ const Dashboard = () => {
       <div className="w-3/4 bg-white border border-gray-200 rounded-xl flex flex-col overflow-hidden shadow-sm">
         {selectedProject ? (
           <>
-            {/* --- 1. PROJECT HEADER --- */}
+            {/* --- PROJECT HEADER --- */}
             <div className="p-6 border-b bg-white">
                 <div className="flex justify-between items-start">
                     <div>
@@ -131,7 +215,7 @@ const Dashboard = () => {
                         </p>
                     </div>
                     
-                    {/* 10. QUICK ACTION BUTTONS */}
+                    {/* QUICK ACTION BUTTONS */}
                     <div className="flex gap-2">
                         {user.role === 'vendor' && selectedProject.status === 'BRIEF' && 
                             <button onClick={handleSendProposal} className="btn-action bg-orange-600 hover:bg-orange-700">🚀 Ambil Proyek</button>}
@@ -150,7 +234,7 @@ const Dashboard = () => {
                     </div>
                 </div>
 
-                {/* --- 2. PROGRESS BAR --- */}
+                {/* PROGRESS BAR */}
                 <div className="mt-6">
                     <div className="flex justify-between mb-2">
                         {['Proposal', 'Agreement', 'Payment DP', 'Execution', 'Completed'].map((step, idx) => {
@@ -184,10 +268,10 @@ const Dashboard = () => {
             {/* --- TAB CONTENT AREA --- */}
             <div className="flex-1 overflow-y-auto bg-gray-50 p-6">
                 
-                {/* TAB: OVERVIEW (Timeline, Task, Details) */}
+                {/* TAB: OVERVIEW */}
                 {activeTab === 'overview' && (
                     <div className="space-y-6">
-                        {/* 3. TIMELINE & MILESTONE (MOCKED) */}
+                        {/* TIMELINE */}
                         <div className="bg-white p-5 rounded-xl border border-gray-200 shadow-sm">
                             <h3 className="font-bold text-gray-800 mb-4 flex items-center gap-2">📅 Timeline & Milestone</h3>
                             <div className="grid grid-cols-3 gap-4 text-center">
@@ -207,7 +291,7 @@ const Dashboard = () => {
                         </div>
 
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                            {/* 5. TASK LIST (Generated based on Status) */}
+                            {/* TASK LIST */}
                             <div className="bg-white p-5 rounded-xl border border-gray-200 shadow-sm">
                                 <h3 className="font-bold text-gray-800 mb-3">✅ Action Items</h3>
                                 <ul className="space-y-3">
@@ -227,7 +311,7 @@ const Dashboard = () => {
                             {/* Detail Deskripsi */}
                             <div className="bg-white p-5 rounded-xl border border-gray-200 shadow-sm">
                                 <h3 className="font-bold text-gray-800 mb-3">📝 Detail Kebutuhan</h3>
-                                <p className="text-sm text-gray-600 whitespace-pre-wrap leading-relaxed bg-gray-50 p-3 rounded border">
+                                <p className="text-sm text-gray-600 whitespace-pre-wrap leading-relaxed bg-gray-50 p-3 rounded border h-40 overflow-y-auto">
                                     {selectedProject.description}
                                 </p>
                             </div>
@@ -235,7 +319,7 @@ const Dashboard = () => {
                     </div>
                 )}
 
-                {/* TAB: FINANCIAL (6. Financial & Payment) */}
+                {/* TAB: FINANCIAL */}
                 {activeTab === 'financial' && (
                     <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm">
                         <div className="flex justify-between items-center mb-6">
@@ -246,46 +330,23 @@ const Dashboard = () => {
                         </div>
                         
                         <div className="space-y-4">
-                            {/* Termin 1 */}
                             <div className="flex items-center justify-between p-4 border rounded-lg hover:bg-gray-50">
-                                <div>
-                                    <p className="font-bold text-gray-800">Termin 1: Down Payment (50%)</p>
-                                    <p className="text-xs text-gray-500">Dibayarkan saat kontrak aktif</p>
-                                </div>
-                                <div className="text-right">
-                                    <p className="font-bold text-indigo-600">{formatRupiah(selectedProject.budget_limit * 0.5)}</p>
-                                    <span className="text-xs bg-gray-200 text-gray-600 px-2 py-0.5 rounded">Belum Dibayar</span>
-                                </div>
+                                <div><p className="font-bold text-gray-800">Termin 1: Down Payment (50%)</p><p className="text-xs text-gray-500">Dibayarkan saat kontrak aktif</p></div>
+                                <div className="text-right"><p className="font-bold text-indigo-600">{formatRupiah(selectedProject.budget_limit * 0.5)}</p><span className="text-xs bg-gray-200 text-gray-600 px-2 py-0.5 rounded">Belum Dibayar</span></div>
                             </div>
-                            
-                            {/* Termin 2 */}
                             <div className="flex items-center justify-between p-4 border rounded-lg opacity-60">
-                                <div>
-                                    <p className="font-bold text-gray-800">Termin 2: Progress 50% (30%)</p>
-                                    <p className="text-xs text-gray-500">Dibayarkan setelah laporan mid-term</p>
-                                </div>
-                                <div className="text-right">
-                                    <p className="font-bold text-gray-500">{formatRupiah(selectedProject.budget_limit * 0.3)}</p>
-                                    <span className="text-xs text-gray-400">Locked</span>
-                                </div>
+                                <div><p className="font-bold text-gray-800">Termin 2: Progress 50% (30%)</p><p className="text-xs text-gray-500">Dibayarkan setelah laporan mid-term</p></div>
+                                <div className="text-right"><p className="font-bold text-gray-500">{formatRupiah(selectedProject.budget_limit * 0.3)}</p><span className="text-xs text-gray-400">Locked</span></div>
                             </div>
-
-                            {/* Termin 3 */}
                             <div className="flex items-center justify-between p-4 border rounded-lg opacity-60">
-                                <div>
-                                    <p className="font-bold text-gray-800">Termin 3: Pelunasan (20%)</p>
-                                    <p className="text-xs text-gray-500">Dibayarkan setelah serah terima</p>
-                                </div>
-                                <div className="text-right">
-                                    <p className="font-bold text-gray-500">{formatRupiah(selectedProject.budget_limit * 0.2)}</p>
-                                    <span className="text-xs text-gray-400">Locked</span>
-                                </div>
+                                <div><p className="font-bold text-gray-800">Termin 3: Pelunasan (20%)</p><p className="text-xs text-gray-500">Dibayarkan setelah serah terima</p></div>
+                                <div className="text-right"><p className="font-bold text-gray-500">{formatRupiah(selectedProject.budget_limit * 0.2)}</p><span className="text-xs text-gray-400">Locked</span></div>
                             </div>
                         </div>
                     </div>
                 )}
 
-                {/* TAB: DOCUMENTS (7. Document Section) */}
+                {/* TAB: DOCUMENTS (Download PDF Ada di Sini) */}
                 {activeTab === 'documents' && (
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div className="bg-white p-5 rounded-xl border border-gray-200 shadow-sm flex items-center justify-between">
@@ -296,7 +357,10 @@ const Dashboard = () => {
                                     <p className="text-xs text-gray-500">Dibuat pada: {selectedProject.event_date}</p>
                                 </div>
                             </div>
-                            <button className="text-blue-600 font-bold text-sm hover:underline">Download</button>
+                            {/* TOMBOL DOWNLOAD */}
+                            <button onClick={handleDownloadBrief} className="text-blue-600 font-bold text-sm hover:underline hover:text-blue-800 transition-colors">
+                                📥 Download
+                            </button>
                         </div>
 
                         {(selectedProject.status === 'READY_TO_SIGN' || selectedProject.status === 'ACTIVE') && (
@@ -304,29 +368,17 @@ const Dashboard = () => {
                                 <div className="flex items-center gap-3">
                                     <div className="bg-blue-100 p-3 rounded-lg text-2xl">⚖️</div>
                                     <div>
-                                        <p className="font-bold text-gray-800">MoU_Contract_Signed.pdf</p>
+                                        <p className="font-bold text-gray-800">MoU_Contract.pdf</p>
                                         <p className="text-xs text-gray-500">Legal Agreement</p>
                                     </div>
                                 </div>
                                 <button onClick={() => navigate(`/sign-mou/${selectedProject.id}`)} className="text-blue-600 font-bold text-sm hover:underline">View & Download</button>
                             </div>
                         )}
-                        
-                        {/* Placeholder Invoice */}
-                        <div className="bg-white p-5 rounded-xl border border-gray-200 shadow-sm flex items-center justify-between opacity-50 border-dashed">
-                            <div className="flex items-center gap-3">
-                                <div className="bg-green-100 p-3 rounded-lg text-2xl">💸</div>
-                                <div>
-                                    <p className="font-bold text-gray-800">Invoice Termin 1</p>
-                                    <p className="text-xs text-gray-500">Menunggu Pembayaran</p>
-                                </div>
-                            </div>
-                            <span className="text-xs text-gray-400">Not Available</span>
-                        </div>
                     </div>
                 )}
 
-                {/* TAB: CHAT (4. Communication Center) */}
+                {/* TAB: CHAT */}
                 {activeTab === 'chat' && (
                     <div className="flex flex-col h-full bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
                         <div className="p-3 bg-gray-50 border-b text-xs text-gray-500 text-center">
@@ -352,6 +404,35 @@ const Dashboard = () => {
           </div>
         )}
       </div>
+
+    {showMouModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
+            <div className="bg-white p-8 rounded-xl shadow-2xl w-full max-w-md animate-fade-in-up">
+                <h3 className="text-xl font-bold text-gray-900 mb-4">📝 Lengkapi Identitas Usaha</h3>
+                <p className="text-sm text-gray-500 mb-6">Data ini akan otomatis dimasukkan ke dalam draf MoU sebagai Pihak Kedua.</p>
+                
+                <div className="space-y-4">
+                    <div>
+                        <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Nama Perusahaan / Vendor</label>
+                        <input type="text" className="w-full border p-2 rounded" value={vendorMouData.nama} onChange={e => setVendorMouData({...vendorMouData, nama: e.target.value})} />
+                    </div>
+                    <div>
+                        <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Alamat Operasional</label>
+                        <input type="text" className="w-full border p-2 rounded" value={vendorMouData.alamat} onChange={e => setVendorMouData({...vendorMouData, alamat: e.target.value})} placeholder="Jl. Contoh No. 123" />
+                    </div>
+                    <div>
+                        <label className="block text-xs font-bold text-gray-500 uppercase mb-1">No. NIB / NPWP</label>
+                        <input type="text" className="w-full border p-2 rounded" value={vendorMouData.id_no} onChange={e => setVendorMouData({...vendorMouData, id_no: e.target.value})} />
+                    </div>
+                </div>
+
+                <div className="flex gap-3 mt-8">
+                    <button onClick={() => setShowMouModal(false)} className="flex-1 py-3 border border-gray-300 rounded-lg font-bold text-gray-600 hover:bg-gray-50">Batal</button>
+                    <button onClick={submitMouGeneration} className="flex-1 py-3 bg-indigo-600 text-white rounded-lg font-bold hover:bg-indigo-700 shadow-lg">Buat MoU</button>
+                </div>
+            </div>
+        </div>
+      )}
 
       <style>{`
         .btn-action { color: white; padding: 8px 16px; border-radius: 8px; font-weight: bold; font-size: 13px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); transition: all 0.2s; }

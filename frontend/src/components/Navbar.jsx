@@ -48,7 +48,7 @@ const Navbar = () => {
             </>
           ) : (
             <Link to="/login" className="text-indigo-600 font-bold hover:underline">
-              Login Masuk
+              Login
             </Link>
           )}
         </div>

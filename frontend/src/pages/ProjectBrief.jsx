@@ -62,27 +62,27 @@ const ProjectBrief = () => {
             // Backend hanya menyimpan ini di kolom 'description'.
             
             const detailedDescription = `
-=== DETAIL PROJECT BRIEF ===
+DETAIL PROJECT BRIEF
 
-[1. INFORMASI DASAR]
+1. INFORMASI DASAR
 • Kategori: ${formData.category}
 • Estimasi Peserta: ${formData.audience_count || '-'} orang
 
-[2. KEBUTUHAN LAYANAN]
+2. KEBUTUHAN LAYANAN
 ${formData.services.length > 0 ? formData.services.map(s => `✓ ${s}`).join('\n') : '-'}
 
-[3. WAKTU PELAKSANAAN]
+3. WAKTU PELAKSANAAN
 • Jam Mulai: ${formData.start_time || '-'}
 • Jam Selesai: ${formData.end_time || '-'}
 • Deadline Kirim Proposal: ${formData.deadline_proposal || '-'}
 
-[4. DESKRIPSI & TUJUAN]
+4. DESKRIPSI & TUJUAN
 ${formData.description}
 
-[5. PERSYARATAN KHUSUS & TEKNIS]
+5. PERSYARATAN KHUSUS & TEKNIS
 ${formData.special_requirements || '-'}
 
-[6. LAMPIRAN DOKUMEN]
+6. LAMPIRAN DOKUMEN
 Link: ${formData.doc_link || '(Tidak ada lampiran)'}
             `.trim();
 

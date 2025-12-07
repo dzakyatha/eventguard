@@ -3,6 +3,18 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import client from '../api/client';
 import { ENDPOINTS } from '../api/endpoints';
+import html2pdf from 'html2pdf.js';
+
+const EditableField = ({ value, onChange, placeholder, disabled }) => (
+    <input 
+        type="text" 
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        placeholder={placeholder}
+        disabled={disabled}
+        className="border-b border-black outline-none bg-transparent w-64 px-1 text-blue-900 font-medium placeholder-gray-300 focus:border-blue-500 disabled:text-black disabled:border-none disabled:bg-gray-50"
+    />
+);
 
 const SignMoU = () => {
     const { projectId } = useParams();
@@ -13,34 +25,55 @@ const SignMoU = () => {
     const [mouId, setMouId] = useState(null);
     const [loading, setLoading] = useState(true);
     
+    const [clientInfo, setClientInfo] = useState(() => {
+        const saved = localStorage.getItem(`mou_client_${projectId}`);
+        return saved ? JSON.parse(saved) : { nama: '', alamat: '', id_no: '' };
+    });
+
+    const [vendorInfo, setVendorInfo] = useState(() => {
+        const saved = localStorage.getItem(`mou_vendor_${projectId}`);
+        return saved ? JSON.parse(saved) : { nama: '', alamat: '', id_no: '' };
+    });
+
     // State Form Tanda Tangan
     const [signedName, setSignedName] = useState('');
     const [isAgreed, setIsAgreed] = useState(false);
     const [isDownloading, setIsDownloading] = useState(false);
 
     useEffect(() => {
+        if(clientInfo.nama) localStorage.setItem(`mou_client_${projectId}`, JSON.stringify(clientInfo));
+    }, [clientInfo, projectId]);
+
+    useEffect(() => {
+        if(vendorInfo.nama) localStorage.setItem(`mou_vendor_${projectId}`, JSON.stringify(vendorInfo));
+    }, [vendorInfo, projectId]);
+
+    // --- EFFECT: Load Data Project ---
+    useEffect(() => {
         const fetchData = async () => {
             try {
-                // 1. Ambil Detail Proyek
                 const resProject = await client.get(ENDPOINTS.PROJECTS.DETAIL(projectId));
                 setProject(resProject.data);
                 
-                // 2. Ambil ID MoU
+                // Pre-fill nama user jika data masih kosong
+                if (user.role === 'client' && !clientInfo.nama) {
+                    setClientInfo(prev => ({ ...prev, nama: user.username }));
+                }
+                // Jika user adalah vendor & data vendor masih kosong, coba isi (opsional)
+                if (user.role === 'vendor' && !vendorInfo.nama) {
+                    setVendorInfo(prev => ({ ...prev, nama: user.username }));
+                }
+
                 try {
                     const resMoU = await client.get(ENDPOINTS.MOU.GET_BY_PROJECT(projectId));
                     setMouId(resMoU.data.id);
-                } catch (err) {
-                    console.log("MoU belum ada", err);
-                }
+                } catch (err) { console.log("MoU belum ada", err); }
             } catch (error) {
                 console.error("Gagal load data:", error);
-                alert("Gagal memuat data proyek.");
-            } finally {
-                setLoading(false);
-            }
+            } finally { setLoading(false); }
         };
         fetchData();
-    }, [projectId]);
+    }, [projectId, user]); // Hapus dependency clientInfo/vendorInfo agar tidak loop
 
     const handleApprove = async () => {
         if (!mouId) return alert("Error: ID MoU tidak ditemukan.");
@@ -72,22 +105,104 @@ const SignMoU = () => {
         } catch (error) { alert("Gagal tanda tangan."); }
     };
 
-    // --- FITUR DOWNLOAD PDF ---
-    const handleDownloadPDF = () => {
+// --- FIX FITUR DOWNLOAD PDF (V8 - Fullscreen Overlay Strategy) ---
+    const handleDownloadPDF = async () => {
+        const originalElement = document.getElementById('mou-document');
+        
+        if (!originalElement) {
+            alert("Gagal menemukan dokumen.");
+            return;
+        }
+
         setIsDownloading(true);
-        const element = document.getElementById('mou-document'); // Ambil elemen dokumen
+
+        // 1. CLONE elemen
+        const clone = originalElement.cloneNode(true);
+
+        // 2. INPUT -> TEXT (Agar rapi)
+        // Kita lakukan ini SEBELUM menempelkan ke DOM
+        const originalInputs = originalElement.querySelectorAll('input');
+        const clonedInputs = clone.querySelectorAll('input');
+
+        originalInputs.forEach((input, index) => {
+            const span = document.createElement('span');
+            span.innerText = input.value ? input.value : '__________________________';
+            Object.assign(span.style, {
+                fontWeight: 'bold',
+                borderBottom: '1px solid black',
+                display: 'inline-block',
+                minWidth: '200px',
+                color: 'black'
+            });
+            if (clonedInputs[index]) clonedInputs[index].parentNode.replaceChild(span, clonedInputs[index]);
+        });
+
+        // 3. CONTAINER KHUSUS (Overlay)
+        // Kita buat div yang menutupi layar sepenuhnya agar html2pdf tidak bingung posisi
+        const container = document.createElement('div');
+        Object.assign(container.style, {
+            position: 'fixed',      // Tetap di layar walau scroll
+            top: '0',
+            left: '0',
+            width: '100vw',         // Lebar layar penuh
+            height: '100vh',        // Tinggi layar penuh
+            zIndex: '99999',        // Paling depan
+            backgroundColor: 'white',
+            overflowY: 'scroll',    // Allow scroll di dalam overlay jika panjang
+            padding: '20px',
+            boxSizing: 'border-box'
+        });
+
+        // 4. STYLE CLONE (Reset Scroll & Height)
+        // Kita hapus class Tailwind yang membatasi tinggi
+        clone.classList.remove('h-[85vh]', 'overflow-y-auto', 'border-r', 'lg:col-span-2');
+        
+        // Kita paksa style agar melebar sesuai A4
+        Object.assign(clone.style, {
+            height: 'auto',
+            maxHeight: 'none',
+            overflow: 'visible',
+            width: '210mm',         // Lebar A4
+            margin: '0 auto',       // Tengah
+            backgroundColor: 'white',
+            color: 'black',
+            fontFamily: 'Times New Roman, serif', // Font formal
+            fontSize: '12pt',
+            lineHeight: '1.5'
+        });
+
+        // Masukkan clone ke container, container ke body
+        container.appendChild(clone);
+        document.body.appendChild(container);
+
+        // 5. TUNGGU RENDER (PENTING!)
+        await new Promise(resolve => setTimeout(resolve, 800));
+
+        // 6. GENERATE PDF
         const opt = {
-            margin:       [10, 10, 10, 10], // Margin atas, kiri, bawah, kanan (mm)
+            margin:       15, 
             filename:     `MOU-EventGuard-${project.id}.pdf`,
             image:        { type: 'jpeg', quality: 0.98 },
-            html2canvas:  { scale: 2 }, // Scale 2 agar teks tajam
+            html2canvas:  { 
+                scale: 2, 
+                useCORS: true,
+                // windowWidth memaksa canvas selebar container, mencegah potong kanan
+                windowWidth: container.scrollWidth 
+            },
             jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' }
         };
 
-        // Generate PDF
-        html2pdf().set(opt).from(element).save().then(() => {
+        try {
+            // Kita print 'clone' yang ada di dalam container
+            await html2pdf().set(opt).from(clone).save();
+        } catch (error) {
+            console.error("Gagal download PDF:", error);
+            alert("Gagal download PDF");
+        } finally {
+            // Bersihkan
+            document.body.removeChild(container);
             setIsDownloading(false);
-        });
+        }
     };
 
     // --- HELPER FORMATTING (Untuk mengisi kolom kosong) ---
@@ -103,7 +218,11 @@ const SignMoU = () => {
     if (!project) return <div className="p-10 text-center">Proyek tidak ditemukan.</div>;
 
     const isClient = user.role === 'client';
+    const isVendor = user.role === 'vendor';
     const status = project.status;
+
+    const canEditClient = isClient && status === 'MOU_DRAFT';
+    const canEditVendor = isVendor && (status === 'NEGOTIATING' || status === 'MOU_DRAFT' || status === 'MOU_REVISION'); // Vendor isi saat belum generate (Logic simulasi)
 
     return (
         <div className="max-w-5xl mx-auto mt-6 mb-10">
@@ -117,7 +236,7 @@ const SignMoU = () => {
             <div className="bg-white shadow-xl rounded-xl overflow-hidden grid grid-cols-1 lg:grid-cols-3">
                 
                 {/* === KOLOM KIRI: DOKUMEN MOU === */}
-                <div className="lg:col-span-2 border-r p-10 bg-white h-[85vh] overflow-y-auto font-serif text-sm text-gray-800 leading-relaxed">
+                <div id="mou-document" className="lg:col-span-2 border-r p-10 bg-white h-[85vh] overflow-y-auto font-serif text-sm text-gray-800 leading-relaxed">
                     
                     {/* JUDUL */}
                     <div className="text-center mb-8">
@@ -137,12 +256,21 @@ const SignMoU = () => {
                         <h3 className="font-bold uppercase mb-2">Pihak Pertama (Pelanggan)</h3>
                         <table className="w-full text-left">
                             <tbody>
-                                <tr><td className="w-32 align-top">Nama</td><td className="align-top">: {project.client_id ? `User ID ${project.client_id}` : "__________________________"}</td></tr>
-                                <tr><td className="align-top">Alamat</td><td className="align-top">: __________________________ <span className="text-xs text-gray-400 italic">(Sesuai KTP)</span></td></tr>
-                                <tr><td className="align-top">No. Identitas</td><td className="align-top">: __________________________</td></tr>
+                                <tr>
+                                    <td className="w-32 align-top">Nama</td>
+                                    <td className="align-top">: <EditableField value={clientInfo.nama} onChange={(val)=>setClientInfo({...clientInfo, nama: val})} placeholder="Nama Lengkap" disabled={!canEditClient} /></td>
+                                </tr>
+                                <tr>
+                                    <td className="align-top">Alamat</td>
+                                    <td className="align-top">: <EditableField value={clientInfo.alamat} onChange={(val)=>setClientInfo({...clientInfo, alamat: val})} placeholder="Alamat Sesuai KTP" disabled={!canEditClient} /></td>
+                                </tr>
+                                <tr>
+                                    <td className="align-top">No. Identitas</td>
+                                    <td className="align-top">: <EditableField value={clientInfo.id_no} onChange={(val)=>setClientInfo({...clientInfo, id_no: val})} placeholder="No. KTP / SIM" disabled={!canEditClient} /></td>
+                                </tr>
                             </tbody>
                         </table>
-                        <p className="mt-1">(Selanjutnya disebut sebagai <strong>"PIHAK PERTAMA"</strong>)</p>
+                        <p className="mt-1">Selanjutnya disebut sebagai <strong>"PIHAK PERTAMA"</strong></p>
                     </div>
 
                     {/* PIHAK KEDUA */}
@@ -150,12 +278,21 @@ const SignMoU = () => {
                         <h3 className="font-bold uppercase mb-2">Pihak Kedua (Vendor/Event Organizer)</h3>
                         <table className="w-full text-left">
                             <tbody>
-                                <tr><td className="w-32 align-top">Nama/Perusahaan</td><td className="align-top">: {project.vendor_id ? `Vendor ID ${project.vendor_id}` : "__________________________"}</td></tr>
-                                <tr><td className="align-top">Alamat</td><td className="align-top">: __________________________</td></tr>
-                                <tr><td className="align-top">No. Identitas/NIB</td><td className="align-top">: __________________________</td></tr>
+                                <tr>
+                                    <td className="w-32 align-top">Nama/Perusahaan</td>
+                                    <td className="align-top">: <EditableField value={vendorInfo.nama} onChange={(val)=>setVendorInfo({...vendorInfo, nama: val})} placeholder="Nama Vendor" disabled={!canEditVendor} /></td>
+                                </tr>
+                                <tr>
+                                    <td className="align-top">Alamat</td>
+                                    <td className="align-top">: <EditableField value={vendorInfo.alamat} onChange={(val)=>setVendorInfo({...vendorInfo, alamat: val})} placeholder="Alamat Operasional" disabled={!canEditVendor} /></td>
+                                </tr>
+                                <tr>
+                                    <td className="align-top">No. Identitas/NIB</td>
+                                    <td className="align-top">: <EditableField value={vendorInfo.id_no} onChange={(val)=>setVendorInfo({...vendorInfo, id_no: val})} placeholder="No. NIB / NPWP" disabled={!canEditVendor} /></td>
+                                </tr>
                             </tbody>
                         </table>
-                        <p className="mt-1">(Selanjutnya disebut sebagai <strong>"PIHAK KEDUA"</strong>)</p>
+                        <p className="mt-1">Selanjutnya disebut sebagai <strong>"PIHAK KEDUA"</strong></p>
                     </div>
 
                     <p className="text-justify mb-4">
