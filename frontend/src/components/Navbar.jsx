@@ -32,10 +32,12 @@ const Navbar = () => {
               </div>
 
               <div className="flex items-center gap-4">
-                <div className="text-right hidden sm:block">
-                  <p className="text-sm font-bold text-gray-800">{user.username}</p>
+                <Link to="/profile" className="text-right hidden sm:block group cursor-pointer">
+                  <p className="text-sm font-bold text-gray-800 group-hover:text-indigo-600 transition-colors">
+                    {user.username}
+                  </p>
                   <p className="text-xs text-gray-500 capitalize">{user.role}</p>
-                </div>
+                </Link>
                 <button 
                   onClick={handleLogout}
                   className="bg-red-50 text-red-600 px-4 py-2 rounded-lg text-sm font-bold hover:bg-red-100 transition-colors"

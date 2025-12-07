@@ -3,12 +3,12 @@ import { AuthProvider } from './context/AuthContext';
 import ProtectedRoute from './components/ProtectedRoute';
 import Navbar from './components/Navbar';
 
-// Import pages...
 import Login from './pages/Login';
 import VendorSearch from './pages/VendorSearch';
 import ProjectBrief from './pages/ProjectBrief';
 import Dashboard from './pages/Dashboard';
 import SignMoU from './pages/SignMoU';
+import Profile from './pages/Profile';
 
 function App() {
     return (
@@ -26,6 +26,7 @@ function App() {
                     <Route path="/search" element={<VendorSearch />} />
                     <Route path="/create-brief/:vendorId" element={<ProjectBrief />} />
                     <Route path="/sign-mou/:projectId" element={<SignMoU />} />
+                    <Route path="/profile" element={<Profile />} />
                 </Route>
                 </Routes>
             </div>
