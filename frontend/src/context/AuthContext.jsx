@@ -31,39 +31,38 @@ export const AuthProvider = ({ children }) => {
 
   // 2. Fungsi Login
   const login = async (username, password) => {
-    // 1. Siapkan data sebagai URLSearchParams (Format Form Data)
+    // 1. Ubah data menjadi format FORM DATA (bukan JSON)
     const params = new URLSearchParams();
     params.append('username', username);
     params.append('password', password);
 
     // 2. Kirim Request
-    // PENTING: Kita hapus 'Authorization' header agar token lama tidak mengganggu
-    // PENTING: Kita timpa 'Content-Type' jadi undefined agar axios mendeteksi otomatis dari params
+    // Kita tidak perlu set header Content-Type manual, 
+    // karena kita mengirim objek URLSearchParams, axios akan otomatis set header yang benar.
+    
+    // Kita override Authorization jadi null agar token lama tidak ikut terkirim
     const res = await client.post(ENDPOINTS.AUTH.LOGIN, params, {
         headers: { 
-            'Content-Type': 'application/x-www-form-urlencoded',
-            'Authorization': '' // Kosongkan header auth
+            'Authorization': '' 
         }
     });
 
-    // 3. Proses Respon
+    console.log("LOGIN SUCCESS:", res.data); 
+
+    // 3. Ambil data dari respon
     const { access_token, role, username: resUsername, user_id } = res.data;
 
     if (access_token) {
         localStorage.setItem('token', access_token);
         
-        // Simpan data user
         const userData = {
             id: user_id,
             username: resUsername,
             role: role
         };
+        
         setUser(userData);
         localStorage.setItem('user_data', JSON.stringify(userData));
-        
-        // Set header untuk request berikutnya
-        client.defaults.headers.common['Authorization'] = `Bearer ${access_token}`;
-        
         return true;
     } else {
         throw new Error("Token tidak ditemukan.");
