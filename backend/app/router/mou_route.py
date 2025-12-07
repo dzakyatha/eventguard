@@ -16,25 +16,31 @@ def generate_mou(id: int, request: Request, db: Session = Depends(get_db), curre
     if current_user.role != "vendor":
         raise HTTPException(status_code=403, detail="Only vendors generate MoU")
     
-    # cek apakah proyek dengan id tersebut ada
     project = db.query(Project).filter(Project.id == id).first()
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
     
-    # cek apakah MoU sudah ada
+    # --- LOGIKA BARU DI SINI ---
     existing_mou = db.query(MoU).filter(MoU.project_id == id).first()
-    if existing_mou:
-        raise HTTPException(status_code=400, detail="MoU already exists for this project")
     
-    # menggunakan template MoU yang sudah ada
+    if existing_mou:
+        # JIKA statusnya REVISION, kita izinkan generate ulang (reset status)
+        if project.status == "MOU_REVISION":
+            project.status = "MOU_DRAFT" # Kembalikan ke Draft agar Client bisa review lagi
+            db.commit()
+            db.refresh(existing_mou)
+            return existing_mou
+        else:
+            # Jika status lain, tetap tolak duplikasi
+            raise HTTPException(status_code=400, detail="MoU already exists for this project")
+    # ---------------------------
+    
+    # Logika pembuatan baru (jika belum ada sama sekali)
     base_url = str(request.base_url).rstrip('/')
     static_url = f"{base_url}/static/templates/mou_template.pdf"
     
-    # membuat MoU baru
     new_mou = MoU(project_id=id, file_url=static_url)
     db.add(new_mou)
-    
-    # memperbarui status proyek
     project.status = "MOU_DRAFT"
     
     db.commit()
