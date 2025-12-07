@@ -13,27 +13,29 @@ export const AuthProvider = ({ children }) => {
     const [loading, setLoading] = useState(false);
 
     const login = async (username, password) => {
-        setLoading(true);
-        try {
-        const payload = { username, password };
-        
-        const response = await client.post(ENDPOINTS.AUTH.LOGIN, payload);
-        
-        const { access_token, role, user_id, username: resUsername } = response.data;
-        
-        const userData = { username: resUsername, role, id: user_id };
+        // 1. Kirim Login (Biarkan format request sesuai yang berhasil sebelumnya)
+        // Asumsi: Backend menerima JSON { username, password }
+        const res = await client.post(ENDPOINTS.AUTH.LOGIN, { username, password });
 
-        localStorage.setItem('token', access_token);
-        localStorage.setItem('user_data', JSON.stringify(userData));
-        
-        setToken(access_token);
-        setUser(userData);
-        return true;
-        } catch (error) {
-        console.error("Login error:", error);
-        throw error;
-        } finally {
-        setLoading(false);
+        // --- PERBAIKAN PENTING DI SINI ---
+        console.log("Respon Backend:", res.data); // Cek di Console: isinya 'token' atau 'access_token'?
+
+        // FastAPI defaultnya pakai 'access_token'. Kita ambil salah satu yang ada.
+        const token = res.data.access_token || res.data.token;
+
+        if (token) {
+            // Simpan ke penyimpanan browser agar client.js bisa baca
+            localStorage.setItem('token', token);
+            
+            // Ambil data user
+            try {
+                const userRes = await client.get(ENDPOINTS.AUTH.ME);
+                setUser(userRes.data);
+            } catch (e) {
+                setUser({ username, role: 'client' }); // Fallback
+            }
+        } else {
+            throw new Error("Token tidak ditemukan di respon login!");
         }
     };
 
