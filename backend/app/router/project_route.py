@@ -172,3 +172,16 @@ def get_mou_by_project(id: int, db: Session = Depends(get_db), current_user: Use
         "client_signed_at": mou.client_signed_at,
         "vendor_signed_at": mou.vendor_signed_at
     }
+    
+@router.delete("/projects/{project_id}", status_code=204)
+def delete_project(project_id: int, db: Session = Depends(get_db)):
+    # 1. Cari proyek
+    project = db.query(Project).filter(Project.id == project_id).first()
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+    
+    # 2. Hapus (Opsional: Cek permission user di sini)
+    db.delete(project)
+    db.commit()
+    
+    return None

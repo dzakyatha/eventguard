@@ -23,7 +23,8 @@ const Icons = {
   Alert: () => <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>,
   Pencil: () => <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>,
   Search: () => <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>,
-  Rocket: () => <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
+  Rocket: () => <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>,
+  Trash: () => <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
 };
 
 const Dashboard = () => {
@@ -165,6 +166,23 @@ const Dashboard = () => {
     html2pdf().set(opt).from(element).save();
   };
 
+  const handleDeleteProject = async () => {
+    if (!selectedProject) return;
+    
+    if (!confirm(`Apakah Anda yakin ingin MENGHAPUS proyek "${selectedProject.name}"?`)) return;
+    if (!confirm("Tindakan ini tidak dapat dibatalkan. Yakin hapus?")) return;
+
+    try {
+        await client.delete(ENDPOINTS.PROJECTS.DETAIL(selectedProject.id));
+        alert("Proyek berhasil dihapus.");
+        setProjects(prev => prev.filter(p => p.id !== selectedProject.id));
+        setSelectedProject(null);
+    } catch (error) {
+        console.error("Gagal hapus:", error);
+        alert("Gagal menghapus proyek. Pastikan Backend sudah memiliki endpoint DELETE.");
+    }
+  };
+
   // Helpers
   const formatRupiah = (num) => "Rp " + (num || 0).toLocaleString('id-ID');
   const getProgressStep = (status) => {
@@ -235,6 +253,14 @@ const Dashboard = () => {
                         
                         {selectedProject.status === 'ACTIVE' && 
                             <button onClick={() => navigate(`/sign-mou/${selectedProject.id}`)} className="px-6 py-2.5 bg-[#251E3B] hover:bg-slate-900 text-white rounded-xl font-bold shadow-lg flex items-center gap-2"><Icons.Doc /> Lihat Kontrak</button>}
+                        
+                        <button 
+                            onClick={handleDeleteProject} 
+                            className="p-3 bg-red-50 text-red-500 rounded-xl hover:bg-red-500 hover:text-white transition-all shadow-sm border border-red-100"
+                            title="Hapus Proyek"
+                        >
+                            <Icons.Trash />
+                        </button>
                     </div>
                 </div>
 
