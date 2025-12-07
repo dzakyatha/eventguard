@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import client from '../api/client';
 import { ENDPOINTS } from '../api/endpoints';
