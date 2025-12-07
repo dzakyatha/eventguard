@@ -34,7 +34,15 @@ async def lifespan(app: FastAPI):
     db.close()
     yield
 
+origins = [
+    "http://localhost:5173",
+    "http://127.0.0.1:5173",
+    "https://eventguard-sage.vercel.app",
+    "https://eventguard-production.up.railway.app"
+]
+
 app = FastAPI(lifespan=lifespan)
+<<<<<<< HEAD
 
 # CORS untuk production
 origins = [
@@ -52,6 +60,9 @@ app.add_middleware(
     allow_headers=["*"]
 )
 
+=======
+app.add_middleware(CORSMiddleware, allow_origins=origins, allow_credentials=True, allow_methods=["*"], allow_headers=["*"])
+>>>>>>> frontend
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
 app.include_router(auth_route.router)
