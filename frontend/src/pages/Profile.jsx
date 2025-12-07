@@ -16,7 +16,7 @@ const Profile = () => {
   const headerImg = user.role === 'vendor' ? `/images/vendor_${user.id}_header.jpg` : null;
 
   useEffect(() => {
-    const fetchData = async () => {
+    const fetchProjects = async () => {
       try {
         const resProjects = await client.get(ENDPOINTS.PROJECTS.LIST);
         setProjects(resProjects.data);

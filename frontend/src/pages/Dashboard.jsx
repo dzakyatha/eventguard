@@ -4,7 +4,27 @@ import { useNavigate } from 'react-router-dom';
 import client from '../api/client';
 import { ENDPOINTS } from '../api/endpoints';
 import ChatBubble from '../components/ChatBubble'; 
-import html2pdf from 'html2pdf.js'; // Pastikan import ini ada
+import html2pdf from 'html2pdf.js';
+
+// --- KOLEKSI IKON SVG (PENGGANTI EMOJI) ---
+const Icons = {
+  Home: () => <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" /></svg>,
+  Brief: () => <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" /></svg>,
+  Chat: () => <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" /></svg>,
+  Money: () => <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>,
+  Doc: () => <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>,
+  Send: () => <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" /></svg>,
+  Calendar: () => <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>,
+  Check: () => <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>,
+  Clock: () => <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>,
+  Lock: () => <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" /></svg>,
+  User: () => <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>,
+  Folder: () => <svg className="w-16 h-16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M5 19a2 2 0 01-2-2V7a2 2 0 012-2h4l2 2h4a2 2 0 012 2v1M5 19h14a2 2 0 002-2v-5a2 2 0 00-2-2H9a2 2 0 00-2 2v5a2 2 0 01-2 2z" /></svg>,
+  Alert: () => <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>,
+  Pencil: () => <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>,
+  Search: () => <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>,
+  Rocket: () => <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
+};
 
 const Dashboard = () => {
   const { user } = useAuth();
@@ -13,17 +33,14 @@ const Dashboard = () => {
   const [projects, setProjects] = useState([]);
   const [selectedProject, setSelectedProject] = useState(null);
   const [loading, setLoading] = useState(true);
-
-  // Tab: 'overview', 'financial', 'documents', 'chat'
   const [activeTab, setActiveTab] = useState('overview'); 
   const [messages, setMessages] = useState([]);
   const [newMessage, setNewMessage] = useState("");
   const chatEndRef = useRef(null); 
-
   const [showMouModal, setShowMouModal] = useState(false);
   const [vendorMouData, setVendorMouData] = useState({ nama: '', alamat: '', id_no: '' });
 
-  // --- 1. FETCH DATA ---
+  // --- FETCH DATA ---
   const fetchProjects = async () => {
     try {
       const res = await client.get(ENDPOINTS.PROJECTS.LIST);
@@ -34,7 +51,7 @@ const Dashboard = () => {
 
   useEffect(() => { fetchProjects(); }, []);
 
-  // --- 2. LOGIC CHAT ---
+  // --- CHAT LOGIC ---
   useEffect(() => {
     if (selectedProject && activeTab === 'chat') {
       const fetchMessages = async () => {
@@ -62,7 +79,7 @@ const Dashboard = () => {
     } catch (error) { alert("Gagal kirim pesan."); }
   };
 
-  // --- 3. LOGIC ACTIONS ---
+  // --- ACTIONS ---
   const handleSendProposal = async () => {
     if (!selectedProject) return;
     const proposalData = { price: selectedProject.budget_limit || 10000000, scope: "Full Service", timeline: "1 Hari" };
@@ -73,34 +90,22 @@ const Dashboard = () => {
   };
 
   const handleGenerateMoU = () => {
-    // Buka modal dulu, jangan langsung API
-    setVendorMouData({ nama: user.username, alamat: '', id_no: '' }); // Reset form
+    setVendorMouData({ nama: user.username, alamat: '', id_no: '' }); 
     setShowMouModal(true);
   };
 
   const submitMouGeneration = async () => {
-    if (!vendorMouData.nama || !vendorMouData.alamat || !vendorMouData.id_no) {
-        return alert("Mohon lengkapi data usaha Anda.");
-    }
-
+    if (!vendorMouData.nama || !vendorMouData.alamat || !vendorMouData.id_no) return alert("Lengkapi data.");
     try {
-        // 1. Simpan data vendor ke LocalStorage (Kuncinya pakai ID Project)
         localStorage.setItem(`mou_vendor_${selectedProject.id}`, JSON.stringify(vendorMouData));
-
-        // 2. Panggil API Backend
         await client.post(ENDPOINTS.MOU.GENERATE(selectedProject.id));
-        
-        alert("MoU berhasil dibuat dengan data Anda!");
-        setShowMouModal(false); // Tutup modal
+        alert("MoU berhasil dibuat!");
+        setShowMouModal(false);
         fetchProjects(); 
         setSelectedProject(null);
-    } catch (error) { 
-        alert("Gagal buat MoU."); 
-        console.error(error);
-    }
+    } catch (error) { alert("Gagal buat MoU."); }
   };
 
-  // --- 4. FITUR BARU: DOWNLOAD PROJECT BRIEF PDF ---
   const handleDownloadBrief = () => {
     if (!selectedProject) return;
 
@@ -160,288 +165,239 @@ const Dashboard = () => {
     html2pdf().set(opt).from(element).save();
   };
 
-  // --- 5. HELPERS VISUAL ---
+  // Helpers
+  const formatRupiah = (num) => "Rp " + (num || 0).toLocaleString('id-ID');
   const getProgressStep = (status) => {
-    switch(status) {
-        case 'BRIEF': return 1;
-        case 'NEGOTIATING': return 2;
-        case 'MOU_DRAFT': return 2; 
-        case 'MOU_REVISION': return 2;
-        case 'READY_TO_SIGN': return 3;
-        case 'ACTIVE': return 4;
-        case 'COMPLETED': return 5;
-        default: return 0;
-    }
+    const steps = { 'BRIEF': 1, 'NEGOTIATING': 2, 'MOU_DRAFT': 2, 'MOU_REVISION': 2, 'READY_TO_SIGN': 3, 'ACTIVE': 4, 'COMPLETED': 5 };
+    return steps[status] || 0;
   };
 
-  const formatRupiah = (num) => "Rp " + (num || 0).toLocaleString('id-ID');
-
   return (
-    <div className="flex h-[85vh] gap-6 font-sans text-gray-800">
-      {/* === SIDEBAR LIST PROYEK === */}
-      <div className="w-1/4 bg-white border border-gray-200 rounded-xl overflow-y-auto shadow-sm">
-        <div className="p-4 border-b bg-gray-50 flex justify-between items-center sticky top-0 z-10">
-            <h2 className="font-bold text-gray-700">🗂️ Proyek Saya</h2>
-            <span className="bg-indigo-100 text-indigo-700 text-xs px-2 py-1 rounded-full font-bold">{projects.length}</span>
+    // FIX SCROLLBAR: Gunakan 'h-screen w-full overflow-hidden'
+    <div className="flex h-screen w-full overflow-hidden font-sans text-[#251E3B] bg-[#F8FAFC]">
+      
+      {/* === SIDEBAR (FIXED WIDTH) === */}
+      <div className="w-80 h-full bg-white border-r border-[#251E3B]/10 flex flex-col z-20 shadow-sm">
+        <div className="p-6 border-b border-[#251E3B]/10">
+            <h2 className="text-xl font-bold flex items-center gap-2 text-[#251E3B]">
+                <span className="bg-[#FF9206]/10 text-[#FF9206] p-2 rounded-xl"><Icons.Brief /></span>
+                Proyek Saya
+            </h2>
+            <p className="text-xs text-[#251E3B]/50 mt-1 ml-11">{projects.length} Proyek Aktif</p>
         </div>
-        <ul>
+        {/* Scroll hanya di dalam list */}
+        <ul className="flex-1 overflow-y-auto p-4 space-y-2">
           {projects.map(p => (
             <li key={p.id} onClick={() => { setSelectedProject(p); setActiveTab('overview'); }} 
-                className={`p-4 border-b cursor-pointer transition-all hover:bg-gray-50 ${selectedProject?.id === p.id ? 'bg-indigo-50 border-l-4 border-indigo-600' : ''}`}>
-              <div className="flex justify-between mb-1">
-                <h3 className="font-bold text-sm truncate w-2/3">{p.name}</h3>
-                <span className={`text-[10px] px-2 py-0.5 rounded-full h-fit font-bold ${p.status === 'ACTIVE' ? 'bg-green-100 text-green-700' : 'bg-gray-200 text-gray-600'}`}>{p.status}</span>
+                className={`p-4 rounded-2xl cursor-pointer transition-all duration-300 border ${selectedProject?.id === p.id ? 'bg-white shadow-lg border-[#FF9206]/30 ring-1 ring-[#FF9206]/20' : 'hover:bg-gray-50 border-transparent'}`}>
+              <div className="flex justify-between items-start mb-2">
+                <h3 className={`font-bold text-sm truncate w-2/3 ${selectedProject?.id === p.id ? 'text-[#FF9206]' : 'text-[#251E3B]'}`}>{p.name}</h3>
+                <span className={`text-[10px] px-2 py-1 rounded-lg font-bold ${p.status === 'ACTIVE' ? 'bg-green-100 text-green-700' : 'bg-slate-100 text-slate-500'}`}>
+                    {p.status === 'ACTIVE' ? 'Aktif' : 'Proses'}
+                </span>
               </div>
-              <p className="text-xs text-gray-500 flex items-center gap-1">📅 {p.event_date}</p>
+              <div className="flex items-center gap-2 text-xs text-[#251E3B]/50">
+                <Icons.Calendar /> <span>{p.event_date}</span>
+              </div>
             </li>
           ))}
         </ul>
       </div>
 
-      {/* === MAIN CONTENT === */}
-      <div className="w-3/4 bg-white border border-gray-200 rounded-xl flex flex-col overflow-hidden shadow-sm">
+      {/* === MAIN CONTENT (FLEXIBLE) === */}
+      <div className="flex-1 h-full flex flex-col overflow-hidden bg-[#F8FAFC]">
         {selectedProject ? (
           <>
-            {/* --- PROJECT HEADER --- */}
-            <div className="p-6 border-b bg-white">
+            {/* HEADER PROYEK */}
+            <div className="px-8 py-6 bg-white border-b border-[#251E3B]/10 shadow-sm shrink-0">
                 <div className="flex justify-between items-start">
                     <div>
-                        <div className="flex items-center gap-3 mb-1">
-                            <h1 className="text-2xl font-bold text-gray-900">{selectedProject.name}</h1>
-                            <span className="bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded border border-blue-200 font-bold">ID: #{selectedProject.id}</span>
+                        <h1 className="text-3xl font-extrabold text-[#251E3B] mb-2 tracking-tight">{selectedProject.name}</h1>
+                        <div className="flex items-center gap-4 text-sm text-[#251E3B]/60">
+                            <span className="flex items-center gap-1 bg-[#F8FAFC] px-3 py-1 rounded-full border border-[#251E3B]/5"><Icons.Calendar /> {selectedProject.event_date}</span>
+                            <span className="flex items-center gap-1"><Icons.User /> Vendor: <strong className="text-[#251E3B]">{selectedProject.vendor_id ? `#${selectedProject.vendor_id}` : '-'}</strong></span>
                         </div>
-                        <p className="text-sm text-gray-500">
-                            Vendor: <span className="font-semibold text-gray-800">{selectedProject.vendor_id ? `Vendor #${selectedProject.vendor_id}` : 'Menunggu Vendor'}</span> • Kategori: <span className="font-semibold">Event Service</span>
-                        </p>
                     </div>
                     
-                    {/* QUICK ACTION BUTTONS */}
-                    <div className="flex gap-2">
+                    {/* BUTTONS (NO EMOJI) */}
+                    <div className="flex gap-3">
                         {user.role === 'vendor' && selectedProject.status === 'BRIEF' && 
-                            <button onClick={handleSendProposal} className="btn-action bg-orange-600 hover:bg-orange-700">🚀 Ambil Proyek</button>}
+                            <button onClick={handleSendProposal} className="px-6 py-2.5 bg-[#FF9206] hover:bg-orange-600 text-white rounded-xl font-bold shadow-lg shadow-orange-500/20 transition-all flex items-center gap-2"><Icons.Rocket /> Ambil Proyek</button>}
                         
                         {(selectedProject.status === 'NEGOTIATING' || selectedProject.status === 'MOU_REVISION') && user.role === 'vendor' && 
-                            <button onClick={handleGenerateMoU} className="btn-action bg-indigo-600 hover:bg-indigo-700">📄 Generate MoU</button>}
+                            <button onClick={handleGenerateMoU} className="px-6 py-2.5 bg-[#251E3B] hover:bg-slate-900 text-white rounded-xl font-bold shadow-lg shadow-slate-500/20 transition-all flex items-center gap-2"><Icons.Doc /> Buat MoU</button>}
                         
                         {selectedProject.status === 'MOU_DRAFT' && user.role === 'client' && 
-                            <button onClick={() => navigate(`/sign-mou/${selectedProject.id}`)} className="btn-action bg-blue-600 hover:bg-blue-700">🔍 Review MoU</button>}
+                            <button onClick={() => navigate(`/sign-mou/${selectedProject.id}`)} className="px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold shadow-lg flex items-center gap-2"><Icons.Search /> Review MoU</button>}
                         
                         {selectedProject.status === 'READY_TO_SIGN' && 
-                            <button onClick={() => navigate(`/sign-mou/${selectedProject.id}`)} className="btn-action bg-green-600 hover:bg-green-700">✍️ Tanda Tangan</button>}
+                            <button onClick={() => navigate(`/sign-mou/${selectedProject.id}`)} className="px-6 py-2.5 bg-green-600 hover:bg-green-700 text-white rounded-xl font-bold shadow-lg flex items-center gap-2"><Icons.Pencil /> Tanda Tangan</button>}
                         
                         {selectedProject.status === 'ACTIVE' && 
-                            <button onClick={() => navigate(`/sign-mou/${selectedProject.id}`)} className="btn-action bg-gray-800 hover:bg-gray-900">📄 Lihat Kontrak</button>}
+                            <button onClick={() => navigate(`/sign-mou/${selectedProject.id}`)} className="px-6 py-2.5 bg-[#251E3B] hover:bg-slate-900 text-white rounded-xl font-bold shadow-lg flex items-center gap-2"><Icons.Doc /> Lihat Kontrak</button>}
                     </div>
                 </div>
 
-                {/* PROGRESS BAR */}
-                <div className="mt-6">
-                    <div className="flex justify-between mb-2">
-                        {['Proposal', 'Agreement', 'Payment DP', 'Execution', 'Completed'].map((step, idx) => {
-                            const currentStep = getProgressStep(selectedProject.status);
-                            const isActive = idx + 1 <= currentStep;
+                {/* PROGRESS TRACKER */}
+                <div className="mt-8 relative px-2">
+                    <div className="absolute top-1/2 left-0 w-full h-1 bg-slate-100 -translate-y-1/2 rounded-full"></div>
+                    <div className="absolute top-1/2 left-0 h-1 bg-[#FF9206] -translate-y-1/2 rounded-full transition-all duration-1000" style={{width: `${(getProgressStep(selectedProject.status)/5)*100}%`}}></div>
+                    <div className="flex justify-between relative z-10">
+                        {['Proposal', 'Agreement', 'Payment', 'Execution', 'Done'].map((step, idx) => {
+                            const active = idx + 1 <= getProgressStep(selectedProject.status);
                             return (
-                                <div key={idx} className={`text-xs font-bold ${isActive ? 'text-indigo-600' : 'text-gray-400'} flex-1 text-center`}>
-                                    {step}
+                                <div key={idx} className="flex flex-col items-center gap-2">
+                                    <div className={`w-8 h-8 rounded-full flex items-center justify-center border-4 transition-all ${active ? 'bg-[#FF9206] border-orange-100 text-white' : 'bg-white border-slate-100 text-slate-300'}`}>
+                                        {active ? <Icons.Check /> : <span className="text-xs font-bold">{idx+1}</span>}
+                                    </div>
+                                    <span className={`text-xs font-bold ${active ? 'text-[#FF9206]' : 'text-slate-300'}`}>{step}</span>
                                 </div>
                             )
                         })}
                     </div>
-                    <div className="h-2 bg-gray-200 rounded-full overflow-hidden flex">
-                        {[1, 2, 3, 4, 5].map(step => (
-                            <div key={step} className={`h-full flex-1 border-r border-white ${step <= getProgressStep(selectedProject.status) ? 'bg-indigo-500' : 'bg-transparent'}`}></div>
-                        ))}
-                    </div>
                 </div>
             </div>
 
-            {/* --- TAB NAVIGATION --- */}
-            <div className="flex border-b px-6 bg-gray-50 gap-6">
-                {['overview', 'financial', 'documents', 'chat'].map(tab => (
-                    <button key={tab} onClick={() => setActiveTab(tab)} 
-                        className={`py-4 text-sm font-bold capitalize border-b-2 transition-colors ${activeTab === tab ? 'border-indigo-600 text-indigo-600' : 'border-transparent text-gray-500 hover:text-gray-700'}`}>
-                        {tab}
+            {/* TAB NAVIGATION */}
+            <div className="flex px-8 border-b border-[#251E3B]/10 bg-white shrink-0">
+                {[
+                    {id: 'overview', label: 'Overview', icon: Icons.Home},
+                    {id: 'financial', label: 'Keuangan', icon: Icons.Money},
+                    {id: 'documents', label: 'Dokumen', icon: Icons.Doc},
+                    {id: 'chat', label: 'Diskusi', icon: Icons.Chat}
+                ].map(tab => (
+                    <button key={tab.id} onClick={() => setActiveTab(tab.id)} 
+                        className={`flex items-center gap-2 py-4 px-6 text-sm font-bold border-b-2 transition-all ${activeTab === tab.id ? 'border-[#FF9206] text-[#FF9206]' : 'border-transparent text-[#251E3B]/40 hover:text-[#251E3B]/80'}`}>
+                        <tab.icon /> {tab.label}
                     </button>
                 ))}
             </div>
 
-            {/* --- TAB CONTENT AREA --- */}
-            <div className="flex-1 overflow-y-auto bg-gray-50 p-6">
+            {/* CONTENT AREA (SCROLLABLE) */}
+            <div className="flex-1 overflow-y-auto p-8 bg-[#F8FAFC]">
                 
-                {/* TAB: OVERVIEW */}
                 {activeTab === 'overview' && (
-                    <div className="space-y-6">
-                        {/* TIMELINE */}
-                        <div className="bg-white p-5 rounded-xl border border-gray-200 shadow-sm">
-                            <h3 className="font-bold text-gray-800 mb-4 flex items-center gap-2">📅 Timeline & Milestone</h3>
-                            <div className="grid grid-cols-3 gap-4 text-center">
-                                <div className="p-3 bg-green-50 rounded-lg border border-green-100">
-                                    <p className="text-xs text-green-600 font-bold uppercase">Start Date</p>
-                                    <p className="font-bold text-gray-800">{selectedProject.event_date}</p>
-                                </div>
-                                <div className="p-3 bg-blue-50 rounded-lg border border-blue-100">
-                                    <p className="text-xs text-blue-600 font-bold uppercase">Countdown</p>
-                                    <p className="font-bold text-gray-800">12 Hari Lagi</p>
-                                </div>
-                                <div className="p-3 bg-purple-50 rounded-lg border border-purple-100">
-                                    <p className="text-xs text-purple-600 font-bold uppercase">Status</p>
-                                    <p className="font-bold text-gray-800">{selectedProject.status.replace('_', ' ')}</p>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                        <div className="md:col-span-2 space-y-6">
+                            <div className="bg-white p-6 rounded-2xl shadow-sm border border-[#251E3B]/5">
+                                <h3 className="font-bold text-[#251E3B] mb-4 text-lg flex items-center gap-2"><Icons.Doc /> Detail Brief</h3>
+                                <div className="p-5 bg-[#F8FAFC] rounded-xl text-[#251E3B]/80 text-sm leading-relaxed whitespace-pre-wrap border border-[#251E3B]/5">
+                                    {selectedProject.description}
                                 </div>
                             </div>
                         </div>
-
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                            {/* TASK LIST */}
-                            <div className="bg-white p-5 rounded-xl border border-gray-200 shadow-sm">
-                                <h3 className="font-bold text-gray-800 mb-3">✅ Action Items</h3>
+                        <div className="md:col-span-1 space-y-6">
+                            <div className="bg-white p-6 rounded-2xl shadow-sm border border-[#251E3B]/5">
+                                <h3 className="font-bold text-[#251E3B] mb-4 flex items-center gap-2"><Icons.Check /> Action Items</h3>
                                 <ul className="space-y-3">
-                                    {selectedProject.status === 'BRIEF' && <li className="task-item">Vendor: Kirim Proposal Penawaran <span className="badge-pending">Pending</span></li>}
-                                    {selectedProject.status === 'MOU_DRAFT' && <li className="task-item">Client: Review Dokumen MoU <span className="badge-urgent">Urgent</span></li>}
-                                    {selectedProject.status === 'READY_TO_SIGN' && <li className="task-item">Both: Tanda Tangan Digital <span className="badge-process">In Progress</span></li>}
-                                    {selectedProject.status === 'ACTIVE' && (
-                                        <>
-                                            <li className="task-item line-through text-gray-400">MoU Signed ✅</li>
-                                            <li className="task-item">Client: Bayar Termin 1 (DP) <span className="badge-pending">Next</span></li>
-                                            <li className="task-item">Vendor: Persiapan Teknis <span className="badge-pending">Pending</span></li>
-                                        </>
-                                    )}
+                                    <li className="flex items-center gap-3 p-3 bg-red-50 rounded-xl text-xs font-bold text-red-600 border border-red-100">
+                                        <Icons.Alert /> Deadline Proposal (H-2)
+                                    </li>
+                                    <li className="flex items-center gap-3 p-3 bg-green-50 rounded-xl text-xs font-bold text-green-600 border border-green-100">
+                                        <Icons.Check /> Venue Confirmed
+                                    </li>
                                 </ul>
                             </div>
-
-                            {/* Detail Deskripsi */}
-                            <div className="bg-white p-5 rounded-xl border border-gray-200 shadow-sm">
-                                <h3 className="font-bold text-gray-800 mb-3">📝 Detail Kebutuhan</h3>
-                                <p className="text-sm text-gray-600 whitespace-pre-wrap leading-relaxed bg-gray-50 p-3 rounded border h-40 overflow-y-auto">
-                                    {selectedProject.description}
-                                </p>
-                            </div>
                         </div>
                     </div>
                 )}
 
-                {/* TAB: FINANCIAL */}
                 {activeTab === 'financial' && (
-                    <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm">
-                        <div className="flex justify-between items-center mb-6">
-                            <h3 className="font-bold text-gray-800 text-lg">💰 Status Keuangan & Escrow</h3>
-                            <span className="bg-green-100 text-green-700 px-3 py-1 rounded-full text-xs font-bold border border-green-200">
-                                Total Deal: {formatRupiah(selectedProject.budget_limit)}
-                            </span>
+                    <div className="bg-white p-8 rounded-2xl shadow-sm border border-[#251E3B]/5">
+                        <div className="flex justify-between items-center mb-8">
+                            <h3 className="font-bold text-[#251E3B] text-xl flex items-center gap-2"><Icons.Money /> Escrow Payment</h3>
+                            <div className="text-right">
+                                <p className="text-xs text-[#251E3B]/40 uppercase font-bold">Total Nilai Proyek</p>
+                                <p className="text-2xl font-extrabold text-[#251E3B]">{formatRupiah(selectedProject.budget_limit)}</p>
+                            </div>
                         </div>
-                        
                         <div className="space-y-4">
-                            <div className="flex items-center justify-between p-4 border rounded-lg hover:bg-gray-50">
-                                <div><p className="font-bold text-gray-800">Termin 1: Down Payment (50%)</p><p className="text-xs text-gray-500">Dibayarkan saat kontrak aktif</p></div>
-                                <div className="text-right"><p className="font-bold text-indigo-600">{formatRupiah(selectedProject.budget_limit * 0.5)}</p><span className="text-xs bg-gray-200 text-gray-600 px-2 py-0.5 rounded">Belum Dibayar</span></div>
-                            </div>
-                            <div className="flex items-center justify-between p-4 border rounded-lg opacity-60">
-                                <div><p className="font-bold text-gray-800">Termin 2: Progress 50% (30%)</p><p className="text-xs text-gray-500">Dibayarkan setelah laporan mid-term</p></div>
-                                <div className="text-right"><p className="font-bold text-gray-500">{formatRupiah(selectedProject.budget_limit * 0.3)}</p><span className="text-xs text-gray-400">Locked</span></div>
-                            </div>
-                            <div className="flex items-center justify-between p-4 border rounded-lg opacity-60">
-                                <div><p className="font-bold text-gray-800">Termin 3: Pelunasan (20%)</p><p className="text-xs text-gray-500">Dibayarkan setelah serah terima</p></div>
-                                <div className="text-right"><p className="font-bold text-gray-500">{formatRupiah(selectedProject.budget_limit * 0.2)}</p><span className="text-xs text-gray-400">Locked</span></div>
-                            </div>
+                            {[{label: 'Termin 1 (DP)', pct: '50%', status: 'unpaid'}, {label: 'Termin 2', pct: '30%', status: 'locked'}, {label: 'Pelunasan', pct: '20%', status: 'locked'}].map((t, idx) => (
+                                <div key={idx} className="flex justify-between items-center p-5 border border-[#251E3B]/5 rounded-xl hover:shadow-md transition-all bg-white">
+                                    <div className="flex items-center gap-4">
+                                        <div className={`w-10 h-10 rounded-full flex items-center justify-center ${t.status === 'paid' ? 'bg-green-100 text-green-600' : 'bg-slate-100 text-slate-400'}`}>
+                                            <span className="font-bold">{idx+1}</span>
+                                        </div>
+                                        <div>
+                                            <p className="font-bold text-[#251E3B]">{t.label}</p>
+                                            <p className="text-xs text-[#251E3B]/50">Sebesar {t.pct} dari total</p>
+                                        </div>
+                                    </div>
+                                    <span className={`px-3 py-1 rounded-lg text-xs font-bold uppercase ${t.status === 'paid' ? 'bg-green-100 text-green-700' : 'bg-slate-100 text-slate-500'}`}>{t.status}</span>
+                                </div>
+                            ))}
                         </div>
                     </div>
                 )}
 
-                {/* TAB: DOCUMENTS (Download PDF Ada di Sini) */}
                 {activeTab === 'documents' && (
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div className="bg-white p-5 rounded-xl border border-gray-200 shadow-sm flex items-center justify-between">
-                            <div className="flex items-center gap-3">
-                                <div className="bg-red-100 p-3 rounded-lg text-2xl">📄</div>
-                                <div>
-                                    <p className="font-bold text-gray-800">Project Brief.pdf</p>
-                                    <p className="text-xs text-gray-500">Dibuat pada: {selectedProject.event_date}</p>
-                                </div>
+                    <div className="grid grid-cols-2 gap-6">
+                        <div className="bg-white p-6 rounded-2xl shadow-sm border border-[#251E3B]/5 hover:border-[#FF9206]/30 transition-all group cursor-pointer" onClick={handleDownloadBrief}>
+                            <div className="flex items-start justify-between mb-4">
+                                <div className="p-3 bg-red-50 text-red-500 rounded-xl group-hover:bg-red-500 group-hover:text-white transition-colors"><Icons.Doc /></div>
+                                <span className="text-xs font-bold text-[#251E3B]/30">PDF</span>
                             </div>
-                            {/* TOMBOL DOWNLOAD */}
-                            <button onClick={handleDownloadBrief} className="text-blue-600 font-bold text-sm hover:underline hover:text-blue-800 transition-colors">
-                                📥 Download
-                            </button>
+                            <h4 className="font-bold text-[#251E3B] mb-1">Project Brief</h4>
+                            <p className="text-xs text-[#251E3B]/50">Created {selectedProject.event_date}</p>
                         </div>
-
-                        {(selectedProject.status === 'READY_TO_SIGN' || selectedProject.status === 'ACTIVE') && (
-                            <div className="bg-white p-5 rounded-xl border border-gray-200 shadow-sm flex items-center justify-between">
-                                <div className="flex items-center gap-3">
-                                    <div className="bg-blue-100 p-3 rounded-lg text-2xl">⚖️</div>
-                                    <div>
-                                        <p className="font-bold text-gray-800">MoU_Contract.pdf</p>
-                                        <p className="text-xs text-gray-500">Legal Agreement</p>
-                                    </div>
+                        {(selectedProject.status === 'ACTIVE' || selectedProject.status === 'READY_TO_SIGN') && (
+                            <div className="bg-white p-6 rounded-2xl shadow-sm border border-[#251E3B]/5 hover:border-blue-200 transition-all group cursor-pointer" onClick={() => navigate(`/sign-mou/${selectedProject.id}`)}>
+                                <div className="flex items-start justify-between mb-4">
+                                    <div className="p-3 bg-blue-50 text-blue-500 rounded-xl group-hover:bg-blue-500 group-hover:text-white transition-colors"><Icons.Doc /></div>
+                                    <span className="text-xs font-bold text-[#251E3B]/30">PDF</span>
                                 </div>
-                                <button onClick={() => navigate(`/sign-mou/${selectedProject.id}`)} className="text-blue-600 font-bold text-sm hover:underline">View & Download</button>
+                                <h4 className="font-bold text-[#251E3B] mb-1">Legal Contract (MoU)</h4>
+                                <p className="text-xs text-[#251E3B]/50">Signed Document</p>
                             </div>
                         )}
                     </div>
                 )}
 
-                {/* TAB: CHAT */}
                 {activeTab === 'chat' && (
-                    <div className="flex flex-col h-full bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
-                        <div className="p-3 bg-gray-50 border-b text-xs text-gray-500 text-center">
-                            🔒 Chat ini terenkripsi dan dipantau oleh EventGuard untuk keamanan transaksi.
+                    <div className="flex flex-col h-full bg-white rounded-2xl border border-[#251E3B]/10 shadow-sm overflow-hidden">
+                        <div className="p-3 bg-[#F8FAFC] border-b border-[#251E3B]/10 text-xs text-[#251E3B]/50 text-center flex items-center justify-center gap-2">
+                            <Icons.Lock /> Chat ini terenkripsi end-to-end
                         </div>
-                        <div className="flex-1 p-4 overflow-y-auto space-y-2">
-                            {messages.length === 0 && <p className="text-center text-gray-400 text-sm mt-10">Mulai diskusi sekarang...</p>}
+                        <div className="flex-1 p-6 overflow-y-auto space-y-4 bg-[#F8FAFC]">
                             {messages.map(msg => <ChatBubble key={msg.id} message={msg} isMe={msg.sender_username === user.username} />)}
                             <div ref={chatEndRef} />
                         </div>
-                        <form onSubmit={handleSendMessage} className="p-3 bg-white border-t flex gap-2">
-                            <input type="text" className="flex-1 border p-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm" placeholder="Tulis pesan..." value={newMessage} onChange={(e) => setNewMessage(e.target.value)} />
-                            <button type="submit" className="bg-indigo-600 text-white px-4 py-2 rounded-lg text-sm font-bold hover:bg-indigo-700">Kirim</button>
+                        <form onSubmit={handleSendMessage} className="p-4 bg-white border-t border-[#251E3B]/10 flex gap-3">
+                            <input type="text" className="flex-1 bg-[#F8FAFC] border border-[#251E3B]/10 p-3 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#FF9206]/20 text-sm" placeholder="Tulis pesan..." value={newMessage} onChange={(e) => setNewMessage(e.target.value)} />
+                            <button type="submit" className="bg-[#FF9206] text-white p-3 rounded-xl hover:bg-orange-600 transition-colors shadow-lg shadow-orange-500/20"><Icons.Send /></button>
                         </form>
                     </div>
                 )}
             </div>
           </>
         ) : (
-          <div className="flex flex-col items-center justify-center h-full text-gray-400 bg-gray-50">
-            <div className="text-6xl mb-4">📂</div>
-            <p>Pilih proyek di menu kiri untuk membuka Command Center.</p>
+          <div className="flex flex-col items-center justify-center h-full text-[#251E3B]/30">
+            <div className="w-24 h-24 bg-[#F8FAFC] rounded-full flex items-center justify-center mb-4 text-[#251E3B]/20">
+                <Icons.Folder />
+            </div>
+            <p className="font-medium">Pilih proyek di menu kiri untuk melihat detail.</p>
           </div>
         )}
       </div>
 
-    {showMouModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
-            <div className="bg-white p-8 rounded-xl shadow-2xl w-full max-w-md animate-fade-in-up">
-                <h3 className="text-xl font-bold text-gray-900 mb-4">📝 Lengkapi Identitas Usaha</h3>
-                <p className="text-sm text-gray-500 mb-6">Data ini akan otomatis dimasukkan ke dalam draf MoU sebagai Pihak Kedua.</p>
-                
+      {/* MODAL VENDOR DATA */}
+      {showMouModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#251E3B]/60 backdrop-blur-sm">
+            <div className="bg-white p-8 rounded-3xl shadow-2xl w-full max-w-md animate-fade-in-up transform transition-all">
+                <h3 className="text-xl font-bold text-[#251E3B] mb-2">Lengkapi Data Usaha</h3>
+                <p className="text-sm text-[#251E3B]/50 mb-6">Data ini dibutuhkan untuk generate kontrak legal.</p>
                 <div className="space-y-4">
-                    <div>
-                        <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Nama Perusahaan / Vendor</label>
-                        <input type="text" className="w-full border p-2 rounded" value={vendorMouData.nama} onChange={e => setVendorMouData({...vendorMouData, nama: e.target.value})} />
-                    </div>
-                    <div>
-                        <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Alamat Operasional</label>
-                        <input type="text" className="w-full border p-2 rounded" value={vendorMouData.alamat} onChange={e => setVendorMouData({...vendorMouData, alamat: e.target.value})} placeholder="Jl. Contoh No. 123" />
-                    </div>
-                    <div>
-                        <label className="block text-xs font-bold text-gray-500 uppercase mb-1">No. NIB / NPWP</label>
-                        <input type="text" className="w-full border p-2 rounded" value={vendorMouData.id_no} onChange={e => setVendorMouData({...vendorMouData, id_no: e.target.value})} />
-                    </div>
+                    <input type="text" className="w-full border-[#251E3B]/10 bg-[#F8FAFC] p-3 rounded-xl focus:ring-2 focus:ring-[#FF9206]/20 outline-none" placeholder="Nama Perusahaan" value={vendorMouData.nama} onChange={e => setVendorMouData({...vendorMouData, nama: e.target.value})} />
+                    <input type="text" className="w-full border-[#251E3B]/10 bg-[#F8FAFC] p-3 rounded-xl focus:ring-2 focus:ring-[#FF9206]/20 outline-none" placeholder="Alamat Lengkap" value={vendorMouData.alamat} onChange={e => setVendorMouData({...vendorMouData, alamat: e.target.value})} />
+                    <input type="text" className="w-full border-[#251E3B]/10 bg-[#F8FAFC] p-3 rounded-xl focus:ring-2 focus:ring-[#FF9206]/20 outline-none" placeholder="No. NIB / NPWP" value={vendorMouData.id_no} onChange={e => setVendorMouData({...vendorMouData, id_no: e.target.value})} />
                 </div>
-
                 <div className="flex gap-3 mt-8">
-                    <button onClick={() => setShowMouModal(false)} className="flex-1 py-3 border border-gray-300 rounded-lg font-bold text-gray-600 hover:bg-gray-50">Batal</button>
-                    <button onClick={submitMouGeneration} className="flex-1 py-3 bg-indigo-600 text-white rounded-lg font-bold hover:bg-indigo-700 shadow-lg">Buat MoU</button>
+                    <button onClick={() => setShowMouModal(false)} className="flex-1 py-3 text-[#251E3B]/50 font-bold hover:bg-slate-50 rounded-xl">Batal</button>
+                    <button onClick={submitMouGeneration} className="flex-1 py-3 bg-[#FF9206] text-white rounded-xl font-bold hover:bg-orange-600 shadow-lg shadow-orange-500/20">Simpan & Buat</button>
                 </div>
             </div>
         </div>
       )}
-
-      <style>{`
-        .btn-action { color: white; padding: 8px 16px; border-radius: 8px; font-weight: bold; font-size: 13px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); transition: all 0.2s; }
-        .btn-action:active { transform: scale(0.95); }
-        .task-item { font-size: 14px; display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #f3f4f6; }
-        .badge-pending { background: #fee2e2; color: #991b1b; padding: 2px 8px; border-radius: 4px; font-size: 10px; font-weight: bold; }
-        .badge-urgent { background: #fef3c7; color: #92400e; padding: 2px 8px; border-radius: 4px; font-size: 10px; font-weight: bold; }
-        .badge-process { background: #e0e7ff; color: #3730a3; padding: 2px 8px; border-radius: 4px; font-size: 10px; font-weight: bold; }
-      `}</style>
     </div>
   );
 };
